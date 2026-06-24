@@ -110,6 +110,20 @@ re-download them on next start. They sit unused since the app uses Runa.
 
 ---
 
+## Customization
+
+- **Personality**: `personality.txt` (repo root) is read **live every turn** by
+  `read_personality()` and appended to the system prompt. The user edits it
+  freely to shape Claude-chan; blank = default behavior. No restart needed.
+- **Volume**: the `#volume` dropdown (0/25/50/75/100%) sets playback volume,
+  persisted in `localStorage["claudechan_volume"]`. `0` acts as mute (skips
+  synthesis entirely). Replaces the old mute button.
+- **Debug logs**: verbose `dlog()` output (gated by `DEBUG` in app.js) goes to
+  the browser console (F12).
+- **No browser caching**: the server sends `Cache-Control: no-store` so edits to
+  app.js/style.css/images appear on a plain reload (don't reintroduce caching,
+  or static edits will look "broken" / not apply).
+
 ## Running, from scratch
 1. Start the engine: `~/.local/bin/aivisspeech-engine`
 2. Start the app: `python3 server.py` (or VS Code F5) → http://localhost:8765

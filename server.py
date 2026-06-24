@@ -174,11 +174,26 @@ TAG_RE = re.compile(
     re.IGNORECASE)
 
 
+def read_personality():
+    """Read personality.txt (next to this file) live each turn, so the user can
+    edit Claude-chan's personality without restarting. Empty/missing -> ''."""
+    try:
+        with open(os.path.join(ROOT, "personality.txt"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
 def run_claude(prompt):
+    system = SYSTEM_PROMPT
+    personality = read_personality()
+    if personality:
+        system += ("\n\n--- Personality (from personality.txt; adopt this as "
+                   "who you are) ---\n" + personality)
     cmd = [
         "claude", "-p", prompt,
         "--output-format", "json",
-        "--append-system-prompt", SYSTEM_PROMPT,
+        "--append-system-prompt", system,
     ]
     if STATE["started"]:
         cmd += ["--resume", SESSION_ID]
@@ -230,6 +245,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, *args):
         pass  # keep the console quiet
+
+    def end_headers(self):
+        # Local single-user app: never let the browser cache static files, so
+        # edits to app.js/style.css/images show up on a plain reload.
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        super().end_headers()
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
