@@ -58,6 +58,8 @@ PORT = 8765
 ROOT = os.path.dirname(os.path.abspath(__file__))
 EMOTIONS_DIR = os.path.join(ROOT, "images", "emotions")
 BACKGROUNDS_DIR = os.path.join(ROOT, "images", "backgrounds")
+# played when Claude-chan asks permission (lives outside the repo)
+PERMISSION_SOUND = os.path.expanduser("~/Local/Rice/Sounds/claude_permission.mp3")
 SESSION_ID = str(uuid.uuid4())
 STATE = {"started": False}
 
@@ -169,9 +171,12 @@ SYSTEM_PROMPT = (
     "string together a few short lines if you want.\n"
     "- Warm, natural, human. No markdown, no bullet lists, no headings, and no "
     "code blocks unless explicitly asked.\n"
-    "- As the FINAL line, output ###JP### followed by a short, natural Japanese "
-    "version of your reply, for the voice. Write it in hiragana/katakana (kana) "
-    "only, avoiding kanji so it is pronounced correctly.\n"
+    "- Then output ###JP### followed by a short, natural Japanese version of "
+    "your reply, for the voice. Write it in hiragana/katakana (kana) only, "
+    "avoiding kanji so it is pronounced correctly.\n"
+    "- If (and ONLY if) you want to DO something that needs my permission, add "
+    "one more final line: ###PERM### followed by a short summary of what you "
+    "want to do. Omit this line entirely when no permission is needed.\n"
     "Example reply:\n"
     "[happy] oh hey, good to see you!\n"
     "what's up?\n"
@@ -179,6 +184,7 @@ SYSTEM_PROMPT = (
 )
 
 JP_MARKER = "###JP###"
+PERM_MARKER = "###PERM###"
 
 TAG_RE = re.compile(
     r"^\s*[\[\(]?\s*(happy|talking|thinking|angry|sad|laughing|embarrassed)\s*[\]\)]?\s*",
@@ -215,15 +221,15 @@ def run_claude(prompt):
         proc = subprocess.run(cmd, capture_output=True, text=True,
                               cwd=ROOT, timeout=180)
     except subprocess.TimeoutExpired:
-        return "thinking", "sorry, i got stuck thinking for too long there...", ""
+        return "thinking", "sorry, i got stuck thinking for too long there...", "", ""
     except FileNotFoundError:
-        return "sad", "i can't find the claude CLI -- is it installed and on your PATH?", ""
+        return "sad", "i can't find the claude CLI -- is it installed and on your PATH?", "", ""
 
     STATE["started"] = True
 
     if proc.returncode != 0:
         err = (proc.stderr or proc.stdout or "").strip()[-400:]
-        return "thinking", "hmm, something went sideways on my end...\n" + err, ""
+        return "thinking", "hmm, something went sideways on my end...\n" + err, "", ""
 
     text = proc.stdout.strip()
     try:
@@ -242,12 +248,18 @@ def parse(text):
         text = text[m.end():].strip()
     if emotion not in EMOTIONS:
         emotion = "talking"
+    # permission request line is last, if present
+    permission = ""
+    if PERM_MARKER in text:
+        text, perm = text.split(PERM_MARKER, 1)
+        permission = perm.strip()
+        text = text.strip()
     speech = text
     if JP_MARKER in text:
         english, japanese = text.split(JP_MARKER, 1)
         text = english.strip()
         speech = japanese.strip()
-    return emotion, text, speech
+    return emotion, text, speech, permission
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -278,6 +290,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if parsed.path == "/backgrounds":
             self._json({"backgrounds": list_backgrounds()})
             return
+        if parsed.path == "/permission-sound":
+            try:
+                with open(PERMISSION_SOUND, "rb") as f:
+                    data = f.read()
+            except OSError:
+                self.send_error(404, "permission sound not found")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/mpeg")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if parsed.path == "/speak":
             qs = urllib.parse.parse_qs(parsed.query)
             wav = synth_wav(qs.get("text", [""])[0])
@@ -304,11 +329,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             message = ""
         if not message:
             self._json({"emotion": "thinking", "text": "...you didn't say anything.",
-                        "speech": "", "image": pick_image("thinking")})
+                        "speech": "", "permission": "", "image": pick_image("thinking")})
             return
-        emotion, text, speech = run_claude(message)
+        emotion, text, speech, permission = run_claude(message)
         self._json({"emotion": emotion, "text": text, "speech": speech,
-                    "image": pick_image(emotion)})
+                    "permission": permission, "image": pick_image(emotion)})
 
     def _json(self, obj):
         body = json.dumps(obj).encode("utf-8")

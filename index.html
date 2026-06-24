@@ -4,15 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude_chan</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Monoton&family=M+PLUS+Rounded+1c:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- wallpaper layer behind everything (set by the background selector) -->
-  <div id="wallpaper"></div>
-
   <header class="title">Claude-chan</header>
 
   <!-- the desktop holds the app window(s) -->
@@ -103,7 +97,22 @@
     <button class="task-app" id="task-bg" data-window="win-bg" type="button">
       <span class="ico nf"></span> background
     </button>
+    <span class="uptime" id="uptime"></span>
     <span class="clock" id="clock"></span>
+  </div>
+
+  <!-- permission prompt (shown when Claude-chan asks to do something) -->
+  <div class="perm-window" id="perm-window" hidden>
+    <div class="titlebar">
+      <span class="win-title"><span class="ico">❓</span> Claude-chan wants to…</span>
+    </div>
+    <div class="perm-body">
+      <p id="perm-text"></p>
+      <div class="perm-buttons">
+        <button id="perm-yes" type="button">Yes</button>
+        <button id="perm-no" type="button">No</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

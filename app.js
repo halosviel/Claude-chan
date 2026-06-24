@@ -195,20 +195,47 @@ document.querySelectorAll(".task-app").forEach((btn) => {
   });
 });
 
-// --- taskbar clock ---
+// --- taskbar clock (12h + AM/PM, day/night glyph) and uptime timer ---
 const clock = document.getElementById("clock");
-function tickClock() {
-  if (!clock) return;
-  const d = new Date();
-  clock.textContent = d.toTimeString().slice(0, 5);
+const uptimeEl = document.getElementById("uptime");
+const START_TIME = Date.now();
+// Nerd Font glyphs (via codepoints so they don't depend on copy/paste).
+const GLYPH_DAY = String.fromCodePoint(0xF05A8);   // 󰖨 sun
+const GLYPH_NIGHT = String.fromCodePoint(0xF0594); // 󰖔 moon
+const GLYPH_UPTIME = String.fromCodePoint(0xF252);  // hourglass
+
+function fmtUptime(totalSec) {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return h + "h " + m + "m " + s + "s";
+  if (m > 0) return m + "m " + s + "s";
+  return s + "s";
 }
-tickClock();
-setInterval(tickClock, 1000);
+function tick() {
+  const d = new Date();
+  if (clock) {
+    let h = d.getHours();
+    const ampm = h < 12 ? "AM" : "PM";
+    const dayTime = h >= 6 && h < 18;
+    let h12 = h % 12; if (h12 === 0) h12 = 12;
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const glyph = dayTime ? GLYPH_DAY : GLYPH_NIGHT;
+    clock.innerHTML = '<span class="ico nf">' + glyph + "</span> " +
+      h12 + ":" + mm + " " + ampm;
+  }
+  if (uptimeEl) {
+    const up = fmtUptime(Math.floor((Date.now() - START_TIME) / 1000));
+    uptimeEl.innerHTML = '<span class="ico nf">' + GLYPH_UPTIME + "</span> " + up;
+  }
+}
+tick();
+setInterval(tick, 1000);
 
 // --- background selector ---
-// Lists the files in images/backgrounds/ as links; clicking one swaps the
-// desktop wallpaper (behind everything) and plays a short cute chime.
-const wallpaper = document.getElementById("wallpaper");
+// Lists images/backgrounds/ as links; clicking one sets the scene BEHIND the
+// (transparent) Claude-chan image so she appears in it, and plays a cute chime.
+const portraitBody = document.querySelector(".portrait-body");
 const bgList = document.getElementById("bg-list");
 let audioCtx = null;
 function playChime() {
@@ -230,11 +257,11 @@ function playChime() {
     });
   } catch (err) { dlog("chime failed:", err); }
 }
-function setWallpaper(file) {
-  if (wallpaper) {
-    wallpaper.style.backgroundImage = 'url("images/backgrounds/' + encodeURI(file) + '")';
+function setScene(file) {
+  if (portraitBody) {
+    portraitBody.style.backgroundImage = 'url("images/backgrounds/' + encodeURI(file) + '")';
   }
-  dlog("wallpaper ->", file);
+  dlog("scene ->", file);
 }
 function loadBackgrounds() {
   if (!bgList) return;
@@ -249,7 +276,7 @@ function loadBackgrounds() {
         a.textContent = file; // full filename incl. extension
         a.addEventListener("click", (e) => {
           e.preventDefault();
-          setWallpaper(file);
+          setScene(file);
           playChime();
         });
         li.appendChild(a);
@@ -337,9 +364,8 @@ function showBubble(text) {
   bubble.style.animation = "";
 }
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const message = input.value.trim();
+async function sendMessage(message) {
+  message = (message || "").trim();
   if (!message) return;
 
   input.value = "";
@@ -356,25 +382,20 @@ form.addEventListener("submit", async (e) => {
     });
     const data = await res.json();
     dlog("chat response:", { emotion: data.emotion, text: data.text,
-      speechLen: (data.speech || "").length, image: data.image });
-    // Synthesize first, then reveal image + text + play together, all in sync.
-    // (The "thinking" picture stays up until the audio is ready.)
-    const audio = await prepareSpeech(data.speech || data.text || "");
-    dlog("audio prepared?", !!audio);
+      speechLen: (data.speech || "").length, permission: data.permission,
+      image: data.image });
     // Synthesize first, then reveal image + text + play together, in sync.
     // (The "thinking" picture stays up until the audio is ready.)
+    const audio = await prepareSpeech(data.speech || data.text || "");
     showImage(data.image);
     showBubble(data.text || "...");
     if (audio) {
       stopAudio();
       currentAudio = audio;
       audio.volume = VOICE_VOLUME; // fixed 49%
-      const p = audio.play();
-      if (p) p.then(() => dlog("audio.play() resolved"))
-             .catch((err) => dlog("audio.play() REJECTED:", err));
-    } else {
-      dlog("no audio -> no highlighting (muted / engine down / synth failed)");
+      audio.play().catch((err) => dlog("audio.play() REJECTED:", err));
     }
+    if (data.permission) showPermission(data.permission);
   } catch (err) {
     dlog("submit error:", err);
     setEmotion("sad");
@@ -383,7 +404,28 @@ form.addEventListener("submit", async (e) => {
     input.disabled = false;
     input.focus();
   }
+}
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  sendMessage(input.value);
 });
+
+// --- permission prompt: shown when Claude-chan asks to do something ---
+const permWindow = document.getElementById("perm-window");
+const permText = document.getElementById("perm-text");
+function showPermission(summary) {
+  if (!permWindow) return;
+  permText.textContent = summary;
+  permWindow.hidden = false;
+  try { new Audio("/permission-sound").play().catch(() => {}); } catch (e) { /* */ }
+  dlog("permission requested:", summary);
+}
+function hidePermission() { if (permWindow) permWindow.hidden = true; }
+const permYes = document.getElementById("perm-yes");
+const permNo = document.getElementById("perm-no");
+if (permYes) permYes.addEventListener("click", () => { hidePermission(); sendMessage("yes, go ahead!"); });
+if (permNo) permNo.addEventListener("click", () => { hidePermission(); sendMessage("no, please don't."); });
 
 // Pick a fresh picture on load.
 setEmotion("happy");
