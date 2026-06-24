@@ -18,7 +18,7 @@ body {
   background-image: radial-gradient(var(--dot) 1.6px, transparent 1.7px);
   background-size: 22px 22px;
   color: var(--text);
-  font-family: "Pixelify Sans", "Courier New", monospace;
+  font-family: "VT323", "Courier New", monospace;
   overflow: hidden;
 }
 
@@ -30,7 +30,7 @@ body {
   z-index: 1;
   text-align: center;
   margin: 0;
-  font-family: "Pacifico", cursive;
+  font-family: "Monoton", cursive;
   font-size: 2.3rem;
   color: var(--orange);
   letter-spacing: 1px;
@@ -94,7 +94,7 @@ body {
   background: var(--orange);
   color: #fff;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   cursor: move;
   user-select: none;
 }
@@ -168,8 +168,8 @@ body {
   border: 2px solid var(--orange);
   box-shadow: 4px 4px 0 var(--orange-soft);
   padding: 12px 14px;
-  font-size: 1rem;
-  line-height: 1.5;
+  font-size: 1.2rem;
+  line-height: 1.4;
   white-space: pre-wrap;
   animation: pop .15s ease;
 }
@@ -206,7 +206,7 @@ body {
   background: var(--orange);
   color: #fff;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.95rem;
   padding: 2px 8px;
   text-shadow: 1px 1px 0 rgba(120, 60, 20, .35);
 }
@@ -214,8 +214,8 @@ body {
 #input {
   width: 100%;
   padding: 9px 11px;
-  font-size: 1rem;
-  font-family: "Pixelify Sans", "Courier New", monospace;
+  font-size: 1.25rem;
+  font-family: "VT323", "Courier New", monospace;
   font-weight: 500;
   border: 2px solid var(--orange);
   background: #fff;
@@ -228,7 +228,7 @@ body {
 .voice-note {
   margin: 6px 0 0;
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   line-height: 1.4;
   color: #b07a3a;
 }
@@ -282,7 +282,7 @@ body {
 .bg-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px; }
 .bg-heading {
   margin: 0 0 10px;
-  font-family: "Pixelify Sans", "Courier New", monospace;
+  font-family: "VT323", "Courier New", monospace;
   font-weight: 700;
   font-size: 1.3rem;
   color: var(--orange);
@@ -293,7 +293,7 @@ body {
   color: #c25a1a;
   text-decoration: underline;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
 }
 .bg-list a:hover { color: var(--orange); background: #ffe6cc; }
 
