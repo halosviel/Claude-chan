@@ -166,14 +166,17 @@ SYSTEM_PROMPT = (
     "[happy] [talking] [thinking] [angry] [sad] [laughing] [embarrassed]. Use "
     "[thinking] and [talking] most often; reserve the others for when you "
     "genuinely feel them.\n"
-    "- After the tag, reply like a real person in casual conversation.\n"
+    "- After the tag, reply like a real person in casual conversation. This "
+    "visible reply MUST be in ENGLISH ONLY -- do not put any Japanese "
+    "characters (kana or kanji) in it.\n"
     "- Keep each sentence short -- no sentence longer than one line. You may "
     "string together a few short lines if you want.\n"
     "- Warm, natural, human. No markdown, no bullet lists, no headings, and no "
     "code blocks unless explicitly asked.\n"
-    "- Then output ###JP### followed by a short, natural Japanese version of "
-    "your reply, for the voice. Write it in hiragana/katakana (kana) only, "
-    "avoiding kanji so it is pronounced correctly.\n"
+    "- Then ALWAYS output one line starting with ###JP### followed by a "
+    "faithful Japanese translation of your ENTIRE English reply above -- same "
+    "meaning, nothing added or dropped -- so the spoken voice matches the text. "
+    "Write it in hiragana/katakana (kana) only, avoiding kanji.\n"
     "- If (and ONLY if) you want to DO something that needs my permission, add "
     "one more final line: ###PERM### followed by a short summary of what you "
     "want to do. Omit this line entirely when no permission is needed.\n"
@@ -185,6 +188,9 @@ SYSTEM_PROMPT = (
 
 JP_MARKER = "###JP###"
 PERM_MARKER = "###PERM###"
+# hiragana, katakana, kanji, halfwidth katakana -- used to keep Japanese out of
+# the English subtitle even if the model leaks some.
+CJK_RE = re.compile(r"[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]")
 
 TAG_RE = re.compile(
     r"^\s*[\[\(]?\s*(happy|talking|thinking|angry|sad|laughing|embarrassed)\s*[\]\)]?\s*",
@@ -259,7 +265,11 @@ def parse(text):
         english, japanese = text.split(JP_MARKER, 1)
         text = english.strip()
         speech = japanese.strip()
-    return emotion, text, speech, permission
+    # safety net: the bubble is English-only, so strip any leaked Japanese and
+    # drop lines that were entirely Japanese.
+    text = CJK_RE.sub("", text)
+    text = "\n".join(ln.strip() for ln in text.splitlines() if ln.strip())
+    return emotion, text.strip(), speech, permission
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
