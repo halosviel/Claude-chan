@@ -36,6 +36,10 @@ function dlog(...args) {
 }
 dlog("app.js loaded");
 
+// Master sound volume: every sound in the app (voice, chime, permission, ...)
+// is multiplied by this, so one knob lowers everything. 0.7 = 30% quieter.
+const SOUND_SCALE = 0.7;
+
 const avatar = document.getElementById("avatar");
 const bubble = document.getElementById("bubble");
 const form = document.getElementById("chat-form");
@@ -249,7 +253,7 @@ function playChime() {
       osc.type = "triangle";
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0.0001, now + t);
-      gain.gain.exponentialRampToValueAtTime(0.25, now + t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.25 * SOUND_SCALE, now + t + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.28);
       osc.connect(gain).connect(audioCtx.destination);
       osc.start(now + t);
@@ -344,6 +348,23 @@ function showImage(src) {
   }, 120);
 }
 
+// Cap the avatar at 1.5x the size it has when the session first loads, so it
+// won't blow up when the window is enlarged. (Still also bounded by 100% of its
+// box, so it shrinks normally in small windows.)
+let avatarCapped = false;
+function capAvatarSize() {
+  if (avatarCapped) return;
+  const r = avatar.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  avatar.style.maxWidth = "min(100%, " + (r.width * 1.5) + "px)";
+  avatar.style.maxHeight = "min(100%, " + (r.height * 1.5) + "px)";
+  avatarCapped = true;
+  dlog("avatar capped at 1.5x:",
+    Math.round(r.width * 1.5) + "x" + Math.round(r.height * 1.5));
+}
+avatar.addEventListener("load", capAvatarSize);
+if (avatar.complete) requestAnimationFrame(capAvatarSize);
+
 // Ask the server for an image for a mood (used for the "thinking" wait state).
 async function setEmotion(emotion) {
   try {
@@ -392,7 +413,7 @@ async function sendMessage(message) {
     if (audio) {
       stopAudio();
       currentAudio = audio;
-      audio.volume = VOICE_VOLUME; // fixed 49%
+      audio.volume = VOICE_VOLUME * SOUND_SCALE; // fixed 49%, scaled by master
       audio.play().catch((err) => dlog("audio.play() REJECTED:", err));
     }
     if (data.permission) showPermission(data.permission);
@@ -418,7 +439,11 @@ function showPermission(summary) {
   if (!permWindow) return;
   permText.textContent = summary;
   permWindow.hidden = false;
-  try { new Audio("/permission-sound").play().catch(() => {}); } catch (e) { /* */ }
+  try {
+    const a = new Audio("/permission-sound");
+    a.volume = SOUND_SCALE;
+    a.play().catch(() => {});
+  } catch (e) { /* */ }
   dlog("permission requested:", summary);
 }
 function hidePermission() { if (permWindow) permWindow.hidden = true; }
