@@ -18,7 +18,7 @@ body {
   background-image: radial-gradient(var(--dot) 1.6px, transparent 1.7px);
   background-size: 22px 22px;
   color: var(--text);
-  font-family: "M PLUS Rounded 1c", "Segoe UI", sans-serif;
+  font-family: "Pixelify Sans", "Courier New", monospace;
   overflow: hidden;
 }
 
@@ -215,7 +215,7 @@ body {
   width: 100%;
   padding: 9px 11px;
   font-size: 1rem;
-  font-family: "M PLUS Rounded 1c", "Segoe UI", sans-serif;
+  font-family: "Pixelify Sans", "Courier New", monospace;
   font-weight: 500;
   border: 2px solid var(--orange);
   background: #fff;
@@ -282,8 +282,9 @@ body {
 .bg-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px; }
 .bg-heading {
   margin: 0 0 10px;
-  font-family: "Pacifico", cursive;
-  font-size: 1.4rem;
+  font-family: "Pixelify Sans", "Courier New", monospace;
+  font-weight: 700;
+  font-size: 1.3rem;
   color: var(--orange);
 }
 .bg-list { list-style: none; margin: 0; padding: 0; }
