@@ -14,13 +14,14 @@
 
   <!-- the desktop holds the app window(s) -->
   <main class="desktop">
-    <div class="window" id="win-app">
+    <!-- Claude-chan app -->
+    <div class="window" id="win-app" data-task="task-claude">
       <div class="titlebar">
-        <span class="win-title"><span class="ico">😊</span> Claude-chan</span>
+        <span class="win-title"><span class="ico nf">󰭻</span> Claude-chan</span>
         <span class="win-buttons">
           <button class="win-min" type="button" title="minimize">_</button>
-          <button type="button" tabindex="-1" aria-hidden="true">□</button>
-          <button type="button" tabindex="-1" aria-hidden="true">✕</button>
+          <button class="win-max" type="button" title="fullscreen">□</button>
+          <button class="win-close" type="button" title="close">✕</button>
         </span>
       </div>
 
@@ -41,7 +42,25 @@
         </div>
       </div>
 
-      <!-- corner resize handles -->
+      <span class="rh rh-nw"></span>
+      <span class="rh rh-ne"></span>
+      <span class="rh rh-sw"></span>
+      <span class="rh rh-se"></span>
+    </div>
+
+    <!-- Terminal app (shows the debug logs); starts minimized -->
+    <div class="window terminal-window" id="win-terminal" data-task="task-terminal" style="display:none">
+      <div class="titlebar">
+        <span class="win-title"><span class="ico nf"></span> terminal</span>
+        <span class="win-buttons">
+          <button class="win-min" type="button" title="minimize">_</button>
+          <button class="win-max" type="button" title="fullscreen">□</button>
+          <button class="win-close" type="button" title="close">✕</button>
+        </span>
+      </div>
+      <div class="win-body term-body">
+        <div class="term-log" id="term-log"></div>
+      </div>
       <span class="rh rh-nw"></span>
       <span class="rh rh-ne"></span>
       <span class="rh rh-sw"></span>
@@ -51,9 +70,12 @@
 
   <!-- Windows-XP-like taskbar -->
   <div class="taskbar">
-    <button class="start-btn" type="button">▦ start</button>
-    <button class="task-app active" id="task-claude" type="button">
-      <span class="ico">😊</span> Claude-chan
+    <button class="start-btn" type="button"><span class="ico nf"></span> start</button>
+    <button class="task-app active" id="task-claude" data-window="win-app" type="button">
+      <span class="ico nf">󰭻</span> Claude-chan
+    </button>
+    <button class="task-app" id="task-terminal" data-window="win-terminal" type="button">
+      <span class="ico nf"></span> terminal
     </button>
     <span class="clock" id="clock"></span>
   </div>

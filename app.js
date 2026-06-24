@@ -19,10 +19,20 @@
 // (VOICE_VOLUME). The voice-note <p id="voice-note"> shows a hint when /tts
 // reports no engine.
 // ============================================================================
-// Verbose debug logging -> browser console (F12). Flip DEBUG to false to mute.
+// Verbose debug logging -> browser console (F12) AND the in-app terminal window.
+// Flip DEBUG to false to mute.
 const DEBUG = true;
 function dlog(...args) {
-  if (DEBUG) console.log("%c[claude-chan]", "color:#e8893a;font-weight:bold", ...args);
+  if (!DEBUG) return;
+  console.log("%c[claude-chan]", "color:#e8893a;font-weight:bold", ...args);
+  const termLog = document.getElementById("term-log");
+  if (termLog) {
+    const line = document.createElement("div");
+    line.textContent = "[" + new Date().toTimeString().slice(0, 8) + "] " +
+      args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" ");
+    termLog.appendChild(line);
+    termLog.scrollTop = termLog.scrollHeight;
+  }
 }
 dlog("app.js loaded");
 
@@ -111,25 +121,79 @@ function makeResizable(win) {
   });
 }
 
-document.querySelectorAll(".window").forEach((w) => {
-  makeDraggable(w);
-  makeResizable(w);
+// --- window controls: minimize, close, fullscreen, taskbar ---
+function taskBtnFor(win) {
+  return document.querySelector('.task-app[data-window="' + win.id + '"]');
+}
+function setTaskActive(win, active) {
+  const btn = taskBtnFor(win);
+  if (btn) btn.classList.toggle("active", active);
+}
+function isHidden(win) { return getComputedStyle(win).display === "none"; }
+
+// hide with an animation ("min" or "close"), then collapse to the taskbar
+function hideWindow(win, mode) {
+  if (isHidden(win)) return;
+  const cls = mode === "close" ? "win-anim-close" : "win-anim-min";
+  win.classList.add(cls);
+  const done = (e) => {
+    if (e.target !== win) return; // ignore child (e.g. bubble) animations
+    win.classList.remove(cls);
+    win.style.display = "none";
+    win.removeEventListener("animationend", done);
+  };
+  win.addEventListener("animationend", done);
+  setTaskActive(win, false);
+}
+function showWindow(win) {
+  win.style.display = "";
+  win.style.zIndex = String(++topZ); // bring to front
+  win.classList.add("win-anim-open");
+  const done = (e) => {
+    if (e.target !== win) return;
+    win.classList.remove("win-anim-open");
+    win.removeEventListener("animationend", done);
+  };
+  win.addEventListener("animationend", done);
+  setTaskActive(win, true);
+}
+function toggleFullscreen(win) {
+  if (win.dataset.fs === "1") {
+    win.style.cssText = win.dataset.prevStyle || "";
+    win.dataset.fs = "";
+  } else {
+    win.dataset.prevStyle = win.style.cssText;
+    win.dataset.fs = "1";
+    // cover the desktop but never the taskbar; sit on top (taskbar z is higher)
+    win.style.position = "fixed";
+    win.style.left = "0";
+    win.style.top = "0";
+    win.style.margin = "0";
+    win.style.width = "100vw";
+    win.style.height = "calc(100vh - var(--taskbar-h))";
+    win.style.zIndex = "9999";
+  }
+}
+
+document.querySelectorAll(".window").forEach((win) => {
+  makeDraggable(win);
+  makeResizable(win);
+  const min = win.querySelector(".win-min");
+  const max = win.querySelector(".win-max");
+  const close = win.querySelector(".win-close");
+  if (min) min.addEventListener("click", () => hideWindow(win, "min"));
+  if (close) close.addEventListener("click", () => hideWindow(win, "close")); // same as minimize
+  if (max) max.addEventListener("click", () => toggleFullscreen(win));
 });
 
-// --- minimize / taskbar ---
-const winApp = document.getElementById("win-app");
-const taskBtn = document.getElementById("task-claude");
-function setMinimized(min) {
-  winApp.style.display = min ? "none" : "";
-  if (taskBtn) taskBtn.classList.toggle("active", !min);
-}
-const minBtn = winApp && winApp.querySelector(".win-min");
-if (minBtn) minBtn.addEventListener("click", () => setMinimized(true));
-if (taskBtn) {
-  taskBtn.addEventListener("click", () => {
-    setMinimized(getComputedStyle(winApp).display !== "none");
+// taskbar buttons toggle their window
+document.querySelectorAll(".task-app").forEach((btn) => {
+  const win = document.getElementById(btn.dataset.window);
+  if (!win) return;
+  btn.addEventListener("click", () => {
+    if (isHidden(win)) showWindow(win); else hideWindow(win, "min");
   });
-}
+});
 
 // --- taskbar clock ---
 const clock = document.getElementById("clock");
