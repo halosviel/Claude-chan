@@ -56,7 +56,8 @@ import uuid
 
 PORT = 8765
 ROOT = os.path.dirname(os.path.abspath(__file__))
-IMAGES_DIR = os.path.join(ROOT, "images")
+EMOTIONS_DIR = os.path.join(ROOT, "images", "emotions")
+BACKGROUNDS_DIR = os.path.join(ROOT, "images", "backgrounds")
 SESSION_ID = str(uuid.uuid4())
 STATE = {"started": False}
 
@@ -76,18 +77,20 @@ FALLBACK_EMOTION = "thinking"
 _LAST_PICK = {}
 
 
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+
+
 def list_pngs(folder):
-    d = os.path.join(IMAGES_DIR, folder)
+    d = os.path.join(EMOTIONS_DIR, folder)
     if not os.path.isdir(d):
         return []
     return sorted(f for f in os.listdir(d) if f.lower().endswith(".png"))
 
 
 def pick_image(emotion):
-    """Pick a random PNG from images/<emotion>/, avoiding an immediate repeat.
-
-    If that folder has no PNGs, fall back to images/thinking/. Returns a web
-    path (e.g. "images/happy/foo.png") or None if nothing is available.
+    """Pick a random PNG from images/emotions/<emotion>/, avoiding an immediate
+    repeat. If that folder has no PNGs, fall back to images/emotions/thinking/.
+    Returns a web path (e.g. "images/emotions/happy/foo.png") or None.
     """
     if emotion not in EMOTIONS:
         emotion = "talking"
@@ -102,7 +105,15 @@ def pick_image(emotion):
     choices = [f for f in files if f != last] or files
     chosen = random.choice(choices)
     _LAST_PICK[folder] = chosen
-    return f"images/{folder}/{chosen}"
+    return f"images/emotions/{folder}/{chosen}"
+
+
+def list_backgrounds():
+    """Filenames of every image in images/backgrounds/ (sorted)."""
+    if not os.path.isdir(BACKGROUNDS_DIR):
+        return []
+    return sorted(f for f in os.listdir(BACKGROUNDS_DIR)
+                  if f.lower().endswith(IMAGE_EXTS))
 
 
 def log(msg):
@@ -263,6 +274,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             # Tells the frontend whether the AivisSpeech engine can speak.
             up = engine_up()
             self._json({"server": up, "engine": "aivisspeech" if up else None})
+            return
+        if parsed.path == "/backgrounds":
+            self._json({"backgrounds": list_backgrounds()})
             return
         if parsed.path == "/speak":
             qs = urllib.parse.parse_qs(parsed.query)

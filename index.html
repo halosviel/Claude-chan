@@ -10,6 +10,9 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- wallpaper layer behind everything (set by the background selector) -->
+  <div id="wallpaper"></div>
+
   <header class="title">Claude-chan</header>
 
   <!-- the desktop holds the app window(s) -->
@@ -28,7 +31,7 @@
       <div class="win-body app-body">
         <div class="portrait-row">
           <div class="portrait-body">
-            <img id="avatar" src="images/happy/happy-1.png" alt="Claude-chan">
+            <img id="avatar" src="images/emotions/happy/happy-1.png" alt="Claude-chan">
           </div>
           <div id="bubble" class="bubble hidden"></div>
         </div>
@@ -66,6 +69,26 @@
       <span class="rh rh-sw"></span>
       <span class="rh rh-se"></span>
     </div>
+
+    <!-- Background selector app; starts minimized -->
+    <div class="window bg-window" id="win-bg" data-task="task-bg" style="display:none">
+      <div class="titlebar">
+        <span class="win-title"><span class="ico nf"></span> Select background</span>
+        <span class="win-buttons">
+          <button class="win-min" type="button" title="minimize">_</button>
+          <button class="win-max" type="button" title="fullscreen">□</button>
+          <button class="win-close" type="button" title="close">✕</button>
+        </span>
+      </div>
+      <div class="win-body bg-body">
+        <h2 class="bg-heading">Select background</h2>
+        <ul class="bg-list" id="bg-list"></ul>
+      </div>
+      <span class="rh rh-nw"></span>
+      <span class="rh rh-ne"></span>
+      <span class="rh rh-sw"></span>
+      <span class="rh rh-se"></span>
+    </div>
   </main>
 
   <!-- Windows-XP-like taskbar -->
@@ -76,6 +99,9 @@
     </button>
     <button class="task-app" id="task-terminal" data-window="win-terminal" type="button">
       <span class="ico nf"></span> terminal
+    </button>
+    <button class="task-app" id="task-bg" data-window="win-bg" type="button">
+      <span class="ico nf"></span> background
     </button>
     <span class="clock" id="clock"></span>
   </div>

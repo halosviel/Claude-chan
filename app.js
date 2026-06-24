@@ -205,6 +205,62 @@ function tickClock() {
 tickClock();
 setInterval(tickClock, 1000);
 
+// --- background selector ---
+// Lists the files in images/backgrounds/ as links; clicking one swaps the
+// desktop wallpaper (behind everything) and plays a short cute chime.
+const wallpaper = document.getElementById("wallpaper");
+const bgList = document.getElementById("bg-list");
+let audioCtx = null;
+function playChime() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = audioCtx || new AC();
+    const now = audioCtx.currentTime;
+    [[880, 0], [1318.5, 0.09]].forEach(([freq, t]) => { // two cute ascending notes
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now + t);
+      gain.gain.exponentialRampToValueAtTime(0.25, now + t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.28);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now + t);
+      osc.stop(now + t + 0.3);
+    });
+  } catch (err) { dlog("chime failed:", err); }
+}
+function setWallpaper(file) {
+  if (wallpaper) {
+    wallpaper.style.backgroundImage = 'url("images/backgrounds/' + encodeURI(file) + '")';
+  }
+  dlog("wallpaper ->", file);
+}
+function loadBackgrounds() {
+  if (!bgList) return;
+  fetch("/backgrounds")
+    .then((r) => r.json())
+    .then((d) => {
+      bgList.innerHTML = "";
+      (d.backgrounds || []).forEach((file) => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = "#";
+        a.textContent = file; // full filename incl. extension
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          setWallpaper(file);
+          playChime();
+        });
+        li.appendChild(a);
+        bgList.appendChild(li);
+      });
+      dlog("backgrounds loaded:", (d.backgrounds || []).length);
+    })
+    .catch((e) => dlog("/backgrounds error:", e));
+}
+loadBackgrounds();
+
 // --- voice ---
 // The voice comes entirely from the server (AivisSpeech). No browser fallback:
 // if the engine isn't running the app stays silent and the server logs why.

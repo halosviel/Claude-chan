@@ -59,6 +59,9 @@ body {
   box-shadow: 4px 4px 0 var(--orange-soft);
 }
 
+/* Claude-chan app: wide landscape rectangle (shorter, longer) */
+#win-app { width: 680px; height: 420px; }
+
 /* nerd-font icon glyphs */
 .nf {
   font-family: "Symbols Nerd Font", "Symbols Nerd Font Mono",
@@ -263,6 +266,35 @@ body {
   word-break: break-word;
 }
 .term-log div { padding: 1px 0; }
+
+/* ---- wallpaper layer (set by the background selector) ---- */
+#wallpaper {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* ---- background selector app ---- */
+.bg-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px; }
+.bg-heading {
+  margin: 0 0 10px;
+  font-family: "Pacifico", cursive;
+  font-size: 1.4rem;
+  color: var(--orange);
+}
+.bg-list { list-style: none; margin: 0; padding: 0; }
+.bg-list li { margin: 3px 0; }
+.bg-list a {
+  color: #c25a1a;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.bg-list a:hover { color: var(--orange); background: #ffe6cc; }
 
 /* ---- taskbar (always above everything, even fullscreen windows) ---- */
 .taskbar {
