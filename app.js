@@ -15,9 +15,9 @@
 // random non-repeating PNG, falls back to images/thinking/ when empty. To add
 // pictures the user just drops PNGs into the matching folder -- no code changes.
 //
-// Voice: server-only (AivisSpeech). The #volume dropdown sets `volume` (0-100,
-// persisted in localStorage; 0 = mute). The voice-note <p id="voice-note">
-// shows a hint when /tts says no engine.
+// Voice: server-only (AivisSpeech), played at a fixed 70% volume
+// (VOICE_VOLUME). The voice-note <p id="voice-note"> shows a hint when /tts
+// reports no engine.
 // ============================================================================
 // Verbose debug logging -> browser console (F12). Flip DEBUG to false to mute.
 const DEBUG = true;
@@ -30,38 +30,22 @@ const avatar = document.getElementById("avatar");
 const bubble = document.getElementById("bubble");
 const form = document.getElementById("chat-form");
 const input = document.getElementById("input");
-const volumeSel = document.getElementById("volume");
 const voiceNote = document.getElementById("voice-note");
 
 // --- voice ---
 // The voice comes entirely from the server (AivisSpeech). No browser fallback:
 // if the engine isn't running the app stays silent and the server logs why.
-// Volume is 0-100, chosen via the dropdown and persisted in localStorage.
-// volume === 0 acts as mute (no synthesis, no playback).
+// Playback volume is fixed at 70% (30% quieter than full).
+const VOICE_VOLUME = 0.7;
 let serverVoice = false;
 let currentAudio = null;
-let volume = parseInt(localStorage.getItem("claudechan_volume"), 10);
-if (isNaN(volume)) volume = 100;
 
 function updateVoiceNote() {
   if (!voiceNote) return;
-  const silent = volume === 0;
   const msg = serverVoice ? "" :
     "🔇 the AivisSpeech engine isn't running — start it, then reload (see README).";
-  voiceNote.textContent = silent ? "" : msg;
-  voiceNote.classList.toggle("hidden", silent || !msg);
-}
-
-if (volumeSel) {
-  volumeSel.value = String(volume);
-  volumeSel.addEventListener("change", () => {
-    volume = parseInt(volumeSel.value, 10) || 0;
-    localStorage.setItem("claudechan_volume", String(volume));
-    if (currentAudio) currentAudio.volume = volume / 100;
-    if (volume === 0) stopAudio();
-    updateVoiceNote();
-    dlog("volume set to", volume + "%");
-  });
+  voiceNote.textContent = msg;
+  voiceNote.classList.toggle("hidden", !msg);
 }
 
 // Ask the server whether the speech engine is available.
@@ -78,7 +62,6 @@ function stopAudio() {
 // text appears (no lag while the server synthesizes). Returns a ready-to-play
 // Audio element, or null if muted / unavailable / failed.
 async function prepareSpeech(text) {
-  if (volume === 0) { dlog("prepareSpeech: skipped (volume 0)"); return null; }
   if (!serverVoice) { dlog("prepareSpeech: skipped (no server voice)"); return null; }
   if (!text) { dlog("prepareSpeech: skipped (empty text)"); return null; }
   try {
@@ -156,7 +139,7 @@ form.addEventListener("submit", async (e) => {
     if (audio) {
       stopAudio();
       currentAudio = audio;
-      audio.volume = volume / 100; // apply the chosen volume
+      audio.volume = VOICE_VOLUME; // fixed 70% (30% quieter)
       const p = audio.play();
       if (p) p.then(() => dlog("audio.play() resolved"))
              .catch((err) => dlog("audio.play() REJECTED:", err));

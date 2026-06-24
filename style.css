@@ -24,25 +24,6 @@ body {
   gap: 30px;
 }
 
-.volume {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  font-size: 0.95rem;
-  padding: 7px 10px;
-  border: 2px solid var(--bubble-border);
-  border-radius: 12px;
-  background: #fff;
-  color: var(--text);
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(180, 120, 60, .15);
-  transition: box-shadow .12s ease;
-}
-
-.volume:hover {
-  box-shadow: 0 6px 14px rgba(180, 120, 60, .22);
-}
-
 .title {
   position: fixed;
   top: 22px;

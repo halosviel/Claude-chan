@@ -115,9 +115,8 @@ re-download them on next start. They sit unused since the app uses Runa.
 - **Personality**: `personality.txt` (repo root) is read **live every turn** by
   `read_personality()` and appended to the system prompt. The user edits it
   freely to shape Claude-chan; blank = default behavior. No restart needed.
-- **Volume**: the `#volume` dropdown (0/25/50/75/100%) sets playback volume,
-  persisted in `localStorage["claudechan_volume"]`. `0` acts as mute (skips
-  synthesis entirely). Replaces the old mute button.
+- **Volume**: playback is fixed at 70% (`VOICE_VOLUME` in app.js). There is no
+  in-app volume control (the old dropdown/mute button were removed).
 - **Debug logs**: verbose `dlog()` output (gated by `DEBUG` in app.js) goes to
   the browser console (F12).
 - **No browser caching**: the server sends `Cache-Control: no-store` so edits to
