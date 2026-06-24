@@ -36,9 +36,9 @@ body {
   z-index: 1;
   text-align: center;
   margin: 0;
-  font-family: "Monoton", var(--title-font);
+  font-family: "Sacramento", var(--title-font);
   font-weight: normal;
-  font-size: 2.5rem;
+  font-size: 3rem;
   color: var(--orange);
   letter-spacing: 1px;
   text-shadow: 2px 2px 0 #fff, 4px 4px 0 var(--orange-soft);
