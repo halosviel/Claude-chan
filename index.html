@@ -6,25 +6,57 @@
   <title>Claude_chan</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="title">Claude-chan</header>
-  <main class="stage">
-    <div class="portrait-row">
-      <div class="portrait">
-        <img id="avatar" src="images/happy/happy-1.png" alt="Claude-chan">
+
+  <!-- the desktop holds the app window(s) -->
+  <main class="desktop">
+    <div class="window" id="win-app">
+      <div class="titlebar">
+        <span class="win-title"><span class="ico">😊</span> Claude-chan</span>
+        <span class="win-buttons">
+          <button class="win-min" type="button" title="minimize">_</button>
+          <button type="button" tabindex="-1" aria-hidden="true">□</button>
+          <button type="button" tabindex="-1" aria-hidden="true">✕</button>
+        </span>
       </div>
-      <div id="bubble" class="bubble hidden"></div>
+
+      <div class="win-body app-body">
+        <div class="portrait-row">
+          <div class="portrait-body">
+            <img id="avatar" src="images/happy/happy-1.png" alt="Claude-chan">
+          </div>
+          <div id="bubble" class="bubble hidden"></div>
+        </div>
+
+        <div class="input-section">
+          <div class="subbar"><span class="ico">💬</span> input</div>
+          <form id="chat-form" autocomplete="off">
+            <input id="input" type="text" placeholder="say something..." autofocus>
+          </form>
+          <p id="voice-note" class="voice-note hidden"></p>
+        </div>
+      </div>
+
+      <!-- corner resize handles -->
+      <span class="rh rh-nw"></span>
+      <span class="rh rh-ne"></span>
+      <span class="rh rh-sw"></span>
+      <span class="rh rh-se"></span>
     </div>
-
-    <form id="chat-form" autocomplete="off">
-      <input id="input" type="text" placeholder="say something..." autofocus>
-    </form>
-
-    <p id="voice-note" class="voice-note hidden"></p>
   </main>
+
+  <!-- Windows-XP-like taskbar -->
+  <div class="taskbar">
+    <button class="start-btn" type="button">▦ start</button>
+    <button class="task-app active" id="task-claude" type="button">
+      <span class="ico">😊</span> Claude-chan
+    </button>
+    <span class="clock" id="clock"></span>
+  </div>
 
   <script src="app.js"></script>
 </body>
