@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude_chan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <button id="mute" class="mute" title="Voice on">🔊</button>
+  <header class="title">Claude-chan</header>
+  <main class="stage">
+    <div class="portrait-row">
+      <div class="portrait">
+        <img id="avatar" src="images/happy/happy-1.png" alt="Claude-chan">
+      </div>
+      <div id="bubble" class="bubble hidden"></div>
+    </div>
+
+    <form id="chat-form" autocomplete="off">
+      <input id="input" type="text" placeholder="say something..." autofocus>
+    </form>
+
+    <p id="voice-note" class="voice-note hidden"></p>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
