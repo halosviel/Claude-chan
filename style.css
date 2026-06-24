@@ -6,9 +6,11 @@
   --text: #4a3a2a;
   --dot: rgba(232, 137, 58, .28);
   --taskbar-h: 38px;
-  /* Windows XP font stacks (Tahoma UI, Trebuchet MS titlebars) */
-  --ui-font: Tahoma, "Segoe UI", Verdana, "DejaVu Sans", sans-serif;
-  --title-font: "Trebuchet MS", Tahoma, "DejaVu Sans", sans-serif;
+  /* Windows XP font stacks. Verdana is listed first because Tahoma isn't
+     installed here (fontconfig substitutes it with Noto); Verdana is its close
+     XP-era cousin. Trebuchet MS is the real XP title-bar font. */
+  --ui-font: Verdana, Tahoma, "DejaVu Sans", sans-serif;
+  --title-font: "Trebuchet MS", Verdana, "DejaVu Sans", sans-serif;
   --term-font: "Lucida Console", Consolas, "DejaVu Sans Mono", monospace;
 }
 
@@ -34,9 +36,9 @@ body {
   z-index: 1;
   text-align: center;
   margin: 0;
-  font-family: var(--title-font);
-  font-weight: bold;
-  font-size: 2.3rem;
+  font-family: "Monoton", var(--title-font);
+  font-weight: normal;
+  font-size: 2.5rem;
   color: var(--orange);
   letter-spacing: 1px;
   text-shadow: 2px 2px 0 #fff, 4px 4px 0 var(--orange-soft);
