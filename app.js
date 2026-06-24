@@ -208,8 +208,8 @@ setInterval(tickClock, 1000);
 // --- voice ---
 // The voice comes entirely from the server (AivisSpeech). No browser fallback:
 // if the engine isn't running the app stays silent and the server logs why.
-// Playback volume is fixed at 70% (30% quieter than full).
-const VOICE_VOLUME = 0.7;
+// Playback volume is fixed at 49%.
+const VOICE_VOLUME = 0.49;
 let serverVoice = false;
 let currentAudio = null;
 
@@ -312,7 +312,7 @@ form.addEventListener("submit", async (e) => {
     if (audio) {
       stopAudio();
       currentAudio = audio;
-      audio.volume = VOICE_VOLUME; // fixed 70% (30% quieter)
+      audio.volume = VOICE_VOLUME; // fixed 49%
       const p = audio.play();
       if (p) p.then(() => dlog("audio.play() resolved"))
              .catch((err) => dlog("audio.play() REJECTED:", err));
