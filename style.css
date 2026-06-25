@@ -236,10 +236,8 @@ body {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 4px;
   cursor: pointer;
 }
-.model-pick .ico { text-shadow: none; }
 #model-select {
   font-family: var(--font-sub);
   font-size: 0.72rem;

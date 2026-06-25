@@ -69,9 +69,9 @@ STATE = {"started": False}
 # replies; Sonnet is balanced; Opus is the richest (and slowest). The frontend
 # fills its dropdown from GET /models, so this list is the single source of truth.
 CHAT_MODELS = [
-    {"id": "haiku", "label": "Haiku · fast"},
-    {"id": "sonnet", "label": "Sonnet · balanced"},
-    {"id": "opus", "label": "Opus · richest"},
+    {"id": "haiku", "label": "Haiku"},
+    {"id": "sonnet", "label": "Sonnet"},
+    {"id": "opus", "label": "Opus"},
 ]
 ALLOWED_MODELS = {m["id"] for m in CHAT_MODELS}
 # Default model + fallback for an unknown/empty request. Override the default
