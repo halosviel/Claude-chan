@@ -26,7 +26,6 @@ HTTP ENDPOINTS (all served on 127.0.0.1:PORT, default 8765)
   GET  /tts                   -> {server: bool, engine: "aivisspeech"|null}
   GET  /speak?text=<jp>       -> WAV audio bytes (or 503 if engine down)
   GET  /backgrounds           -> {backgrounds: [filenames in assets/backgrounds/]}
-  GET  /permission-sound      -> the permission mp3
   POST /chat  {message, model?} -> {emotion, text, speech, permission, image}
 
 IMAGES  (assets/emotions/<emotion>/*.png)  *** DO NOT REGENERATE OR OVERWRITE ***
@@ -60,8 +59,6 @@ PORT = 8765
 ROOT = os.path.dirname(os.path.abspath(__file__))
 EMOTIONS_DIR = os.path.join(ROOT, "assets", "emotions")
 BACKGROUNDS_DIR = os.path.join(ROOT, "assets", "backgrounds")
-# played when Claude-chan asks permission (lives outside the repo)
-PERMISSION_SOUND = os.path.expanduser("~/Local/Rice/Sounds/claude_permission.mp3")
 SESSION_ID = str(uuid.uuid4())
 STATE = {"started": False}
 # Chat models the user can pick from in the UI (sent per-message). The `claude`
@@ -339,19 +336,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         if parsed.path == "/backgrounds":
             self._json({"backgrounds": list_backgrounds()})
-            return
-        if parsed.path == "/permission-sound":
-            try:
-                with open(PERMISSION_SOUND, "rb") as f:
-                    data = f.read()
-            except OSError:
-                self.send_error(404, "permission sound not found")
-                return
-            self.send_response(200)
-            self.send_header("Content-Type", "audio/mpeg")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
             return
         if parsed.path == "/speak":
             qs = urllib.parse.parse_qs(parsed.query)

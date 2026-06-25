@@ -130,6 +130,16 @@ let topZ = 10;
 // not-yet-moved window to its current spot. Otherwise popping one out of the
 // flex layout makes the others re-center and jump. Read all rects first, then
 // apply, so freezing one doesn't reflow the next.
+// Pin a window to fixed positioning at a given rect (shared by the layout
+// freeze and the start of a drag/resize).
+function pinFixed(win, r) {
+  win.style.position = "fixed";
+  win.style.margin = "0";
+  win.style.width = r.width + "px";
+  win.style.left = r.left + "px";
+  win.style.top = r.top + "px";
+}
+
 function freezeWindowLayout() {
   const flow = [];
   document.querySelectorAll(".desktop > .window").forEach((w) => {
@@ -137,13 +147,7 @@ function freezeWindowLayout() {
     if (w.style.position === "fixed") return; // already pinned
     flow.push([w, w.getBoundingClientRect()]);
   });
-  flow.forEach(([w, r]) => {
-    w.style.position = "fixed";
-    w.style.margin = "0";
-    w.style.width = r.width + "px";
-    w.style.left = r.left + "px";
-    w.style.top = r.top + "px";
-  });
+  flow.forEach(([w, r]) => pinFixed(w, r));
 }
 
 function makeDraggable(win) {
@@ -154,11 +158,7 @@ function makeDraggable(win) {
     if (e.target.closest(".win-buttons")) return; // don't drag from the buttons
     freezeWindowLayout();                          // keep the other windows put
     const r = win.getBoundingClientRect();
-    win.style.position = "fixed";
-    win.style.margin = "0";
-    win.style.width = r.width + "px";
-    win.style.left = r.left + "px";
-    win.style.top = r.top + "px";
+    pinFixed(win, r);
     win.style.zIndex = String(++topZ);
     offX = e.clientX - r.left;
     offY = e.clientY - r.top;
@@ -186,11 +186,7 @@ function makeResizable(win) {
       e.stopPropagation(); // don't start a titlebar drag
       freezeWindowLayout();                          // keep the other windows put
       const r = win.getBoundingClientRect();
-      win.style.position = "fixed";
-      win.style.margin = "0";
-      win.style.left = r.left + "px";
-      win.style.top = r.top + "px";
-      win.style.width = r.width + "px";
+      pinFixed(win, r);
       win.style.height = r.height + "px";
       win.style.zIndex = String(++topZ);
       const sx = e.clientX, sy = e.clientY;
@@ -525,6 +521,13 @@ async function setEmotion(emotion) {
   }
 }
 
+// Re-trigger the bubble's CSS "pop" animation from the start.
+function popBubble() {
+  bubble.style.animation = "none";
+  void bubble.offsetWidth;
+  bubble.style.animation = "";
+}
+
 // While Claude-chan "thinks", cycle the bubble through "." -> ".." -> "..."
 let thinkingTimer = null;
 function stopThinking() {
@@ -536,10 +539,7 @@ function startThinking() {
   const frames = [".", "..", "..."];
   let n = 0;
   bubble.textContent = frames[0];
-  // pop once on appear, then just swap the dots (no per-frame re-pop)
-  bubble.style.animation = "none";
-  void bubble.offsetWidth;
-  bubble.style.animation = "";
+  popBubble(); // pop once on appear; the dots just swap after (no per-frame re-pop)
   thinkingTimer = setInterval(() => {
     n = (n + 1) % frames.length;
     bubble.textContent = frames[n];
@@ -550,10 +550,7 @@ function showBubble(text) {
   stopThinking(); // real text replaces the thinking animation
   bubble.classList.remove("hidden");
   bubble.textContent = text;
-  // re-trigger the pop animation
-  bubble.style.animation = "none";
-  void bubble.offsetWidth;
-  bubble.style.animation = "";
+  popBubble(); // re-trigger the pop animation
 }
 
 async function sendMessage(message) {
