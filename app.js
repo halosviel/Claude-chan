@@ -475,13 +475,25 @@ async function sendMessage(message) {
     const audio = await prepareSpeech(data.speech || data.text || "");
     showImage(data.image);
     showBubble(data.text || "...");
+    // If she's proposing an action, hold the permission window until she has
+    // finished speaking (or, with no voice, a short beat to read) so she can
+    // explain what she wants to do first. Fire once, no matter which path hits.
+    let permShown = false;
+    const revealPerm = () => {
+      if (permShown || !data.permission) return;
+      permShown = true;
+      showPermission(data.permission);
+    };
     if (audio) {
       stopAudio();
       currentAudio = audio;
       audio.volume = VOICE_VOLUME * SOUND_SCALE; // fixed 49%, scaled by master
-      audio.play().catch((err) => dlog("audio.play() REJECTED:", err));
+      audio.addEventListener("ended", revealPerm, { once: true });
+      audio.addEventListener("error", revealPerm, { once: true });
+      audio.play().catch((err) => { dlog("audio.play() REJECTED:", err); revealPerm(); });
+    } else if (data.permission) {
+      setTimeout(revealPerm, 900);
     }
-    if (data.permission) showPermission(data.permission);
   } catch (err) {
     dlog("submit error:", err);
     setEmotion("sad");
