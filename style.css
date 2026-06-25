@@ -231,9 +231,16 @@ body {
   padding: 2px 8px;
   text-shadow: 1px 1px 0 rgba(120, 60, 20, .35);
 }
-/* model dropdown lives on the right of the input subbar */
-.model-pick {
+/* live character count, pushed to the right of the input subbar */
+.char-count {
   margin-left: auto;
+  font-weight: 500;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  opacity: .9;
+}
+/* model dropdown sits just right of the char count */
+.model-pick {
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -248,20 +255,68 @@ body {
   cursor: pointer;
   outline: none;
 }
-#chat-form { width: 100%; margin-top: 6px; }
-#input {
+/* markdown composer (contenteditable): grows to ~3 lines, then scrolls */
+.md-editor {
   width: 100%;
+  margin-top: 6px;
+  min-height: calc(1.5em + 18px);
+  max-height: calc(4.5em + 18px);   /* ~3 lines + padding before scrolling */
+  overflow-y: auto;
   padding: 9px 11px;
   font-size: 0.95rem;
   font-family: var(--font-sub);
   font-weight: 500;
+  line-height: 1.5;
   border: 2px solid var(--orange);
   background: #fff;
   color: var(--text);
   outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
-#input::placeholder { color: #c0936a; }
-#input:disabled { opacity: .6; }
+.md-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #c0936a;
+  pointer-events: none;
+}
+.md-editor.disabled { opacity: .6; pointer-events: none; }
+
+/* live markdown styling inside the composer (the syntax markers stay, dimmed) */
+.md-mark { opacity: .4; }
+.md-b { font-weight: 800; }
+.md-i { font-style: italic; }
+.md-h1 { font-size: 1.45em; font-weight: 800; line-height: 1.25; }
+.md-h2 { font-size: 1.25em; font-weight: 800; line-height: 1.3; }
+.md-h3 { font-size: 1.08em; font-weight: 800; }
+.md-code-inline {
+  font-family: "Modeseven", monospace;
+  background: #f1e2cf;
+  border: 1px solid #e7cba6;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+.md-code {
+  display: block;
+  position: relative;
+  margin: 2px 0;
+  padding: 9px 8px 6px;
+  font-family: "Modeseven", monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+  background: #2a1a10;
+  color: #ffcf8a;
+  border-radius: 4px;
+}
+.md-code::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 3px;
+  right: 7px;
+  font-size: 0.7em;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #e8893a;
+}
 
 .voice-note {
   margin: 6px 0 0;

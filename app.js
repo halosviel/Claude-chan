@@ -70,8 +70,6 @@ const SOUND_SCALE = 0.7;
 
 const avatar = document.getElementById("avatar");
 const bubble = document.getElementById("bubble");
-const form = document.getElementById("chat-form");
-const input = document.getElementById("input");
 const voiceNote = document.getElementById("voice-note");
 
 // --- chat model selector ---
@@ -502,8 +500,8 @@ async function sendMessage(message) {
   message = (message || "").trim();
   if (!message) return;
 
-  input.value = "";
-  input.disabled = true;
+  clearEditor();
+  setEditorDisabled(true);
   dlog("submit:", JSON.stringify(message));
   setEmotion("thinking");
   showBubble("...");
@@ -547,15 +545,226 @@ async function sendMessage(message) {
     setEmotion("sad");
     showBubble("i couldn't reach the server... is server.py still running?");
   } finally {
-    input.disabled = false;
-    input.focus();
+    setEditorDisabled(false);
+    editor.focus();
   }
 }
 
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
-  sendMessage(input.value);
-});
+// ============================================================================
+// Markdown composer (contenteditable).  A live editor: as you type Discord-ish
+// markdown it renders in place -- **bold**, *italics* / _italics_, # / ## / ###
+// headers, `inline code`, and ```fenced code``` blocks (language auto-detected
+// when not given). The syntax markers stay visible but dimmed, which keeps the
+// text content 1:1 with what's typed so the caret never jumps. Enter sends;
+// Shift+Enter inserts a newline (box grows to ~3 lines, then scrolls). Pasting
+// rich text is converted to markdown first. The char count lives in the subbar.
+// ============================================================================
+const editor = document.getElementById("editor");
+const charCount = document.getElementById("char-count");
+let isComposing = false; // true mid-IME (e.g. Japanese); don't re-render then
+
+function editorText() { return editor.textContent || ""; }
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Caret as an absolute character offset into editor.textContent, so it can be
+// restored after we rewrite innerHTML (offsets are stable: we never add/remove
+// characters during rendering, only wrap them in styled spans).
+function getCaretOffset(root) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !root.contains(sel.anchorNode)) return null;
+  const range = sel.getRangeAt(0);
+  const pre = range.cloneRange();
+  pre.selectNodeContents(root);
+  pre.setEnd(range.endContainer, range.endOffset);
+  return pre.toString().length;
+}
+function setCaretOffset(root, offset) {
+  if (offset == null) return;
+  let remaining = offset;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let node;
+  while ((node = walker.nextNode())) {
+    const len = node.nodeValue.length;
+    if (remaining <= len) {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.setStart(node, remaining);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return;
+    }
+    remaining -= len;
+  }
+  // offset past the end: drop the caret at the very end
+  const sel = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+// crude-but-handy language guess for a fenced block with no language given
+function detectLang(code) {
+  const c = code.trim();
+  if (!c) return "text";
+  if (/^[\s]*[[{][\s\S]*[\]}][\s]*$/.test(c) && /["']?[\w-]+["']?\s*:/.test(c)) return "json";
+  if (/^\s*</.test(c) || /<\/?[a-z][\s\S]*>/i.test(c)) return "html";
+  if (/\bdef\s+\w+\s*\(|\bimport\s+\w+|\bprint\s*\(|:\s*$/m.test(c)) return "python";
+  if (/\bfunction\b|=>|\bconst\b|\blet\b|\bconsole\.\w+/.test(c)) return "javascript";
+  if (/#include\b|\bint\s+main\b|std::/.test(c)) return "cpp";
+  if (/^\s*#!|\b(echo|sudo|apt|pacman|cd|ls|grep|chmod|curl)\b/.test(c)) return "bash";
+  if (/[.#][\w-]+\s*\{[\s\S]*:[\s\S]*;[\s\S]*\}/.test(c)) return "css";
+  if (/\bSELECT\b[\s\S]*\bFROM\b/i.test(c)) return "sql";
+  return "text";
+}
+
+// inline spans within one line: code first (stashed so its contents aren't
+// re-formatted), then bold, then italics. Markers are kept and dimmed.
+function renderInline(line) {
+  let s = escapeHtml(line);
+  const stash = [];
+  const keep = (html) => "" + (stash.push(html) - 1) + "";
+  s = s.replace(/(`+)([^`]+?)\1/g, (m, t, code) =>
+    keep(`<code class="md-code-inline"><span class="md-mark">${t}</span>${code}<span class="md-mark">${t}</span></code>`));
+  s = s.replace(/\*\*(?=\S)([\s\S]+?)(?<=\S)\*\*/g, (m, t) =>
+    `<strong class="md-b"><span class="md-mark">**</span>${t}<span class="md-mark">**</span></strong>`);
+  s = s.replace(/(^|[^*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?!\*)/g, (m, pre, t) =>
+    `${pre}<em class="md-i"><span class="md-mark">*</span>${t}<span class="md-mark">*</span></em>`);
+  s = s.replace(/(^|[^\w])_(?=\S)([^_\n]+?)(?<=\S)_(?!\w)/g, (m, pre, t) =>
+    `${pre}<em class="md-i"><span class="md-mark">_</span>${t}<span class="md-mark">_</span></em>`);
+  return s.replace(/(\d+)/g, (m, i) => stash[+i]);
+}
+
+function renderLine(line) {
+  const h = line.match(/^(#{1,3})(\s+)([\s\S]*)$/);
+  if (h) {
+    return `<span class="md-h${h[1].length}"><span class="md-mark">${h[1]}</span>` +
+      `${escapeHtml(h[2])}${renderInline(h[3])}</span>`;
+  }
+  return renderInline(line);
+}
+
+// Build the editor HTML from the raw text. Newlines are re-emitted verbatim and
+// fenced blocks keep every character, so textContent stays identical to input.
+function buildHtml(text) {
+  if (text === "") return "";
+  const lines = text.split("\n");
+  const parts = [];
+  let i = 0;
+  while (i < lines.length) {
+    const open = lines[i].match(/^```(\s*[\w+#.\-]*)\s*$/);
+    if (open) {
+      let j = i + 1, closed = false;
+      while (j < lines.length) { if (/^```\s*$/.test(lines[j])) { closed = true; break; } j++; }
+      const end = closed ? j : lines.length - 1;           // last consumed line
+      const raw = lines.slice(i, end + 1).join("\n");
+      const code = lines.slice(i + 1, (closed ? j : lines.length)).join("\n");
+      const lang = open[1].trim() || detectLang(code);
+      parts.push(`<span class="md-code" data-lang="${escapeHtml(lang)}">${escapeHtml(raw)}</span>`);
+      i = end + 1;
+    } else {
+      parts.push(renderLine(lines[i]));
+      i += 1;
+    }
+    if (i < lines.length) parts.push("\n");
+  }
+  return parts.join("");
+}
+
+function formatCount(n) {
+  return n.toLocaleString("en-US") + (n === 1 ? " character" : " characters");
+}
+function updateCharCount() {
+  if (charCount) charCount.textContent = formatCount(Array.from(editorText()).length);
+}
+
+function render(preserveCaret) {
+  const text = editorText();
+  const off = preserveCaret ? getCaretOffset(editor) : null;
+  editor.innerHTML = buildHtml(text);
+  if (preserveCaret) setCaretOffset(editor, off);
+  updateCharCount();
+}
+
+function insertText(str) {
+  const off = getCaretOffset(editor);
+  const at = off == null ? editorText().length : off;
+  const text = editorText();
+  editor.innerHTML = buildHtml(text.slice(0, at) + str + text.slice(at));
+  setCaretOffset(editor, at + str.length);
+  updateCharCount();
+}
+
+function clearEditor() { editor.innerHTML = ""; updateCharCount(); }
+function setEditorDisabled(d) {
+  editor.contentEditable = d ? "false" : "true";
+  editor.classList.toggle("disabled", d);
+}
+
+// rich paste -> markdown, so pasting formatted text keeps its formatting
+function htmlToMarkdown(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  const walk = (node) => {
+    let out = "";
+    node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { out += n.nodeValue; return; }
+      if (n.nodeType !== 1) return;
+      const inner = walk(n);
+      switch (n.tagName.toLowerCase()) {
+        case "strong": case "b": out += "**" + inner + "**"; break;
+        case "em": case "i": out += "*" + inner + "*"; break;
+        case "code": out += "`" + inner + "`"; break;
+        case "pre": out += "```\n" + inner + "\n```\n"; break;
+        case "h1": out += "# " + inner + "\n"; break;
+        case "h2": out += "## " + inner + "\n"; break;
+        case "h3": case "h4": case "h5": case "h6": out += "### " + inner + "\n"; break;
+        case "li": out += "- " + inner + "\n"; break;
+        case "br": out += "\n"; break;
+        case "p": case "div": out += inner + "\n"; break;
+        default: out += inner;
+      }
+    });
+    return out;
+  };
+  return walk(tmp).replace(/\n{3,}/g, "\n\n").replace(/\s+$/, "");
+}
+
+if (editor) {
+  editor.addEventListener("input", () => {
+    if (isComposing) { updateCharCount(); return; } // let the IME finish first
+    render(true);
+  });
+  editor.addEventListener("compositionstart", () => { isComposing = true; });
+  editor.addEventListener("compositionend", () => { isComposing = false; render(true); });
+
+  editor.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !isComposing) {
+      e.preventDefault();
+      const msg = editorText().trim();
+      if (msg) sendMessage(msg);
+    } else if (e.key === "Enter" && e.shiftKey) {
+      e.preventDefault();
+      insertText("\n");
+    }
+  });
+
+  editor.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const cd = e.clipboardData || window.clipboardData;
+    let txt = cd ? cd.getData("text/plain") : "";
+    const html = cd ? cd.getData("text/html") : "";
+    if (html) { const md = htmlToMarkdown(html); if (md) txt = md; }
+    if (txt) insertText(txt);
+  });
+
+  updateCharCount();
+  editor.focus();
+}
 
 // --- permission prompt: a real draggable window ---
 // Yes accepts; No / minimize / close all reject. Fullscreen just toggles.

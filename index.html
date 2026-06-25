@@ -36,13 +36,13 @@
         <div class="input-section">
           <div class="subbar">
             <span class="subbar-label"><span class="ico nf">󰭻</span> input</span>
+            <span class="char-count" id="char-count">0 characters</span>
             <label class="model-pick">
               <select id="model-select" title="chat model"></select>
             </label>
           </div>
-          <form id="chat-form" autocomplete="off">
-            <input id="input" type="text" placeholder="say something..." autofocus>
-          </form>
+          <div id="editor" class="md-editor" contenteditable="true" role="textbox"
+               aria-multiline="true" data-placeholder="say something... (shift+enter for a new line)"></div>
           <p id="voice-note" class="voice-note hidden"></p>
         </div>
       </div>
