@@ -266,8 +266,8 @@ document.querySelectorAll(".task-app").forEach((btn) => {
 
 // --- start menu (XP-style) ---
 // The Start button toggles a tall panel above it. Items open windows or act on
-// the app: Memory (opens its window), Restart (reload the page), Power off (quit
-// the server, then show a shutdown screen). Clicking elsewhere / Esc closes it.
+// the app: Memory (opens its window), Restart (reload the page), Power off
+// (close the browser tab). Clicking elsewhere / Esc closes it.
 const startBtn = document.getElementById("start-btn");
 const startMenu = document.getElementById("start-menu");
 function isStartOpen() { return startMenu && startMenu.style.display !== "none"; }
@@ -302,10 +302,14 @@ if (startRestartBtn) startRestartBtn.addEventListener("click", () => {
 const startPowerBtn = document.getElementById("start-poweroff");
 if (startPowerBtn) startPowerBtn.addEventListener("click", () => {
   closeStartMenu();
-  dlog("start menu -> power off (quit server)");
-  fetch("/quit", { method: "POST" }).catch(() => {}); // server exits; ignore the dropped response
-  const screen = document.getElementById("shutdown-screen");
-  if (screen) screen.style.display = "flex";
+  dlog("start menu -> power off (close window)");
+  window.close();
+  // Browsers refuse to close a tab they didn't open via script; if we're still
+  // here a moment later, fall back to the shutdown screen as a graceful end.
+  setTimeout(() => {
+    const screen = document.getElementById("shutdown-screen");
+    if (screen) screen.style.display = "flex";
+  }, 150);
 });
 
 // --- taskbar clock (12h + AM/PM, day/night glyph) and uptime timer ---
