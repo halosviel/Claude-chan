@@ -525,7 +525,29 @@ async function setEmotion(emotion) {
   }
 }
 
+// While Claude-chan "thinks", cycle the bubble through "." -> ".." -> "..."
+let thinkingTimer = null;
+function stopThinking() {
+  if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+}
+function startThinking() {
+  stopThinking();
+  bubble.classList.remove("hidden");
+  const frames = [".", "..", "..."];
+  let n = 0;
+  bubble.textContent = frames[0];
+  // pop once on appear, then just swap the dots (no per-frame re-pop)
+  bubble.style.animation = "none";
+  void bubble.offsetWidth;
+  bubble.style.animation = "";
+  thinkingTimer = setInterval(() => {
+    n = (n + 1) % frames.length;
+    bubble.textContent = frames[n];
+  }, 400);
+}
+
 function showBubble(text) {
+  stopThinking(); // real text replaces the thinking animation
   bubble.classList.remove("hidden");
   bubble.textContent = text;
   // re-trigger the pop animation
@@ -542,7 +564,7 @@ async function sendMessage(message) {
   setEditorDisabled(true);
   dlog("submit:", JSON.stringify(message));
   setEmotion("thinking");
-  showBubble("...");
+  startThinking();
 
   try {
     const res = await fetch("/chat", {
