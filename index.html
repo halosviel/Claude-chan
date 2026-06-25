@@ -91,11 +91,31 @@
       <span class="rh rh-sw"></span>
       <span class="rh rh-se"></span>
     </div>
+
+    <!-- Memory viewer; opened from the Start menu (content TBD) -->
+    <div class="window memory-window" id="win-memory" data-task="task-memory" style="display:none">
+      <div class="titlebar">
+        <span class="win-title"><span class="ico nf">󰍛</span> Memory</span>
+        <span class="win-buttons">
+          <button class="win-min" type="button" title="minimize">_</button>
+          <button class="win-max" type="button" title="fullscreen">□</button>
+          <button class="win-close" type="button" title="close">✕</button>
+        </span>
+      </div>
+      <div class="win-body memory-body">
+        <h2 class="memory-heading">Memory</h2>
+        <p class="memory-empty">Claude-chan's memories will live here.<br>(Nothing saved yet — coming soon.)</p>
+      </div>
+      <span class="rh rh-nw"></span>
+      <span class="rh rh-ne"></span>
+      <span class="rh rh-sw"></span>
+      <span class="rh rh-se"></span>
+    </div>
   </main>
 
   <!-- Windows-XP-like taskbar -->
   <div class="taskbar">
-    <button class="start-btn" type="button"><span class="ico nf"></span> start</button>
+    <button class="start-btn" id="start-btn" type="button"><span class="ico nf">󰨡</span> start</button>
     <button class="task-app active" id="task-claude" data-window="win-app" type="button">
       <span class="ico nf"></span> Claude-chan
     </button>
@@ -107,6 +127,23 @@
     </button>
     <span class="uptime" id="uptime"></span>
     <span class="clock" id="clock"></span>
+  </div>
+
+  <!-- Start menu (XP-style): a tall panel that pops up above the Start button -->
+  <div class="start-menu" id="start-menu" style="display:none">
+    <div class="start-menu-header"><span class="ico nf"></span> Claude-chan</div>
+    <ul class="start-menu-list">
+      <li><button class="start-item" id="start-memory" type="button"><span class="ico nf">󰍛</span> Memory</button></li>
+    </ul>
+    <div class="start-menu-footer">
+      <button class="start-item" id="start-restart" type="button"><span class="ico nf"></span> Restart</button>
+      <button class="start-item" id="start-poweroff" type="button"><span class="ico nf"></span> Power off</button>
+    </div>
+  </div>
+
+  <!-- shown after Power off -->
+  <div class="shutdown-screen" id="shutdown-screen" style="display:none">
+    <p>It's now safe to turn off Claude-chan.</p>
   </div>
 
   <!-- permission prompt: a real draggable window (min/close = reject) -->

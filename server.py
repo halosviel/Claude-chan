@@ -28,6 +28,7 @@ HTTP ENDPOINTS (all served on 127.0.0.1:PORT, default 8765)
   GET  /backgrounds           -> {backgrounds: [filenames in assets/backgrounds/]}
   GET  /permission-sound      -> the permission mp3
   POST /chat  {message, model?} -> {emotion, text, speech, permission, image}
+  POST /quit                  -> {ok}; then exits the process (Start > Power off)
 
 IMAGES  (assets/emotions/<emotion>/*.png)  *** DO NOT REGENERATE OR OVERWRITE ***
   The user hand-curates these folders (some intentionally empty). pick_image()
@@ -52,6 +53,7 @@ import random
 import re
 import socketserver
 import subprocess
+import threading
 import urllib.parse
 import urllib.request
 import uuid
@@ -368,6 +370,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        if self.path == "/quit":
+            # Start menu "Power off": ack, then exit the process shortly after so
+            # the response flushes to the browser first.
+            self._json({"ok": True})
+            threading.Timer(0.3, lambda: os._exit(0)).start()
+            return
         if self.path != "/chat":
             self.send_error(404)
             return

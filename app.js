@@ -264,6 +264,50 @@ document.querySelectorAll(".task-app").forEach((btn) => {
   });
 });
 
+// --- start menu (XP-style) ---
+// The Start button toggles a tall panel above it. Items open windows or act on
+// the app: Memory (opens its window), Restart (reload the page), Power off (quit
+// the server, then show a shutdown screen). Clicking elsewhere / Esc closes it.
+const startBtn = document.getElementById("start-btn");
+const startMenu = document.getElementById("start-menu");
+function isStartOpen() { return startMenu && startMenu.style.display !== "none"; }
+function openStartMenu() { if (startMenu) startMenu.style.display = "flex"; }
+function closeStartMenu() { if (startMenu) startMenu.style.display = "none"; }
+
+if (startBtn) {
+  startBtn.addEventListener("click", (e) => {
+    e.stopPropagation(); // don't let the document handler immediately re-close it
+    if (isStartOpen()) closeStartMenu(); else openStartMenu();
+  });
+}
+if (startMenu) startMenu.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => { if (isStartOpen()) closeStartMenu(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeStartMenu(); });
+
+const startMemoryBtn = document.getElementById("start-memory");
+if (startMemoryBtn) startMemoryBtn.addEventListener("click", () => {
+  closeStartMenu();
+  const win = document.getElementById("win-memory");
+  if (win) showWindow(win);
+  dlog("start menu -> memory");
+});
+
+const startRestartBtn = document.getElementById("start-restart");
+if (startRestartBtn) startRestartBtn.addEventListener("click", () => {
+  closeStartMenu();
+  dlog("start menu -> restart (reload)");
+  location.reload();
+});
+
+const startPowerBtn = document.getElementById("start-poweroff");
+if (startPowerBtn) startPowerBtn.addEventListener("click", () => {
+  closeStartMenu();
+  dlog("start menu -> power off (quit server)");
+  fetch("/quit", { method: "POST" }).catch(() => {}); // server exits; ignore the dropped response
+  const screen = document.getElementById("shutdown-screen");
+  if (screen) screen.style.display = "flex";
+});
+
 // --- taskbar clock (12h + AM/PM, day/night glyph) and uptime timer ---
 const clock = document.getElementById("clock");
 const uptimeEl = document.getElementById("uptime");
