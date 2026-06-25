@@ -68,6 +68,16 @@ dlog("app.js loaded");
 // is multiplied by this, so one knob lowers everything. 0.7 = 30% quieter.
 const SOUND_SCALE = 0.7;
 
+// Play a named UI sound from assets/sounds/<name>.mp3 at the master volume.
+// Used for window open/close/minimize/fullscreen and the permission prompt.
+function playSound(name) {
+  try {
+    const a = new Audio("assets/sounds/" + name + ".mp3");
+    a.volume = SOUND_SCALE;
+    a.play().catch(() => {});
+  } catch (e) { /* ignore */ }
+}
+
 const avatar = document.getElementById("avatar");
 const bubble = document.getElementById("bubble");
 const voiceNote = document.getElementById("voice-note");
@@ -223,6 +233,7 @@ function isHidden(win) { return getComputedStyle(win).display === "none"; }
 // hide with an animation ("min" or "close"), then collapse to the taskbar
 function hideWindow(win, mode) {
   if (isHidden(win)) return;
+  playSound(mode === "close" ? "app-close" : "app-minimize");
   const cls = mode === "close" ? "win-anim-close" : "win-anim-min";
   win.classList.add(cls);
   const done = (e) => {
@@ -235,6 +246,7 @@ function hideWindow(win, mode) {
   setTaskActive(win, false);
 }
 function showWindow(win) {
+  playSound("app-open");
   win.style.display = "";
   win.style.zIndex = String(++topZ); // bring to front
   win.classList.add("win-anim-open");
@@ -247,6 +259,7 @@ function showWindow(win) {
   setTaskActive(win, true);
 }
 function toggleFullscreen(win) {
+  playSound("app-fullscreen");
   if (win.dataset.fs === "1") {
     win.style.cssText = win.dataset.prevStyle || "";
     win.dataset.fs = "";
@@ -869,11 +882,7 @@ function showPermission(summary) {
   permWindow.style.left = Math.max(8, (innerWidth - w) / 2) + "px";
   permWindow.style.top = Math.max(8, (innerHeight - h) / 2 - 20) + "px";
   permWindow.style.zIndex = String(++topZ);
-  try {
-    const a = new Audio("/permission-sound");
-    a.volume = SOUND_SCALE;
-    a.play().catch(() => {});
-  } catch (e) { /* */ }
+  playSound("ask-permission");
   dlog("permission requested:", summary);
 }
 function hidePermission() { if (permWindow) permWindow.style.display = "none"; }
