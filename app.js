@@ -113,12 +113,34 @@ if (modelSelect) {
 // to fixed positioning at its current spot (so it leaves the centered layout).
 // The _ button minimizes (to the taskbar); □ / ✕ are decorative.
 let topZ = 10;
+
+// Before a window leaves the centered flow (on drag/resize), pin every visible,
+// not-yet-moved window to its current spot. Otherwise popping one out of the
+// flex layout makes the others re-center and jump. Read all rects first, then
+// apply, so freezing one doesn't reflow the next.
+function freezeWindowLayout() {
+  const flow = [];
+  document.querySelectorAll(".desktop > .window").forEach((w) => {
+    if (getComputedStyle(w).display === "none") return;
+    if (w.style.position === "fixed") return; // already pinned
+    flow.push([w, w.getBoundingClientRect()]);
+  });
+  flow.forEach(([w, r]) => {
+    w.style.position = "fixed";
+    w.style.margin = "0";
+    w.style.width = r.width + "px";
+    w.style.left = r.left + "px";
+    w.style.top = r.top + "px";
+  });
+}
+
 function makeDraggable(win) {
   const bar = win.querySelector(".titlebar");
   if (!bar) return;
   let offX = 0, offY = 0, dragging = false;
   bar.addEventListener("mousedown", (e) => {
     if (e.target.closest(".win-buttons")) return; // don't drag from the buttons
+    freezeWindowLayout();                          // keep the other windows put
     const r = win.getBoundingClientRect();
     win.style.position = "fixed";
     win.style.margin = "0";
@@ -150,6 +172,7 @@ function makeResizable(win) {
     h.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation(); // don't start a titlebar drag
+      freezeWindowLayout();                          // keep the other windows put
       const r = win.getBoundingClientRect();
       win.style.position = "fixed";
       win.style.margin = "0";

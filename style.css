@@ -66,6 +66,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 28px;          /* space between windows when more than one is open */
 }
 
 /* ---- retro windows (XP/NSO-ish) ---- */
