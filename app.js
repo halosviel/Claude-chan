@@ -68,12 +68,14 @@ dlog("app.js loaded");
 // is multiplied by this, so one knob lowers everything. 0.7 = 30% quieter.
 const SOUND_SCALE = 0.7;
 
-// Play a named UI sound from assets/sounds/<name>.mp3 at the master volume.
-// Used for window open/close/minimize/fullscreen and the permission prompt.
+// UI sound effects (window open/close/minimize/fullscreen, permission prompt)
+// play at half the master volume -- they're accents, not the main audio.
+const SFX_SCALE = 0.5;
+// Play a named UI sound from assets/sounds/<name>.mp3.
 function playSound(name) {
   try {
     const a = new Audio("assets/sounds/" + name + ".mp3");
-    a.volume = SOUND_SCALE;
+    a.volume = SOUND_SCALE * SFX_SCALE;
     a.play().catch(() => {});
   } catch (e) { /* ignore */ }
 }
