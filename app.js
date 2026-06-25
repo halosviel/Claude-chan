@@ -493,22 +493,22 @@ function showImage(src) {
   }, 120);
 }
 
-// Cap the avatar at 1.5x the size it has when the session first loads, so it
-// won't blow up when the window is enlarged. (Still also bounded by 100% of its
-// box, so it shrinks normally in small windows.)
-let avatarCapped = false;
-function capAvatarSize() {
-  if (avatarCapped) return;
-  const r = avatar.getBoundingClientRect();
+// Cap the PORTRAIT BOX at 1.5x the size it has when the session first loads, so
+// neither the avatar nor its background scene blow up when the window is
+// enlarged. The avatar just fits the box, so capping the box caps both.
+let portraitCapped = false;
+function capPortraitSize() {
+  if (portraitCapped || !portraitBody) return;
+  const r = portraitBody.getBoundingClientRect();
   if (!r.width || !r.height) return;
-  avatar.style.maxWidth = "min(100%, " + (r.width * 1.5) + "px)";
-  avatar.style.maxHeight = "min(100%, " + (r.height * 1.5) + "px)";
-  avatarCapped = true;
-  dlog("avatar capped at 1.5x:",
+  portraitBody.style.maxWidth = (r.width * 1.5) + "px";
+  portraitBody.style.maxHeight = (r.height * 1.5) + "px";
+  portraitCapped = true;
+  dlog("portrait box capped at 1.5x:",
     Math.round(r.width * 1.5) + "x" + Math.round(r.height * 1.5));
 }
-avatar.addEventListener("load", capAvatarSize);
-if (avatar.complete) requestAnimationFrame(capAvatarSize);
+avatar.addEventListener("load", capPortraitSize);
+if (avatar.complete) requestAnimationFrame(capPortraitSize);
 
 // Ask the server for an image for a mood (used for the "thinking" wait state).
 async function setEmotion(emotion) {
