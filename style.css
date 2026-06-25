@@ -26,6 +26,10 @@
 
 * { box-sizing: border-box; }
 
+/* very light orange highlight for selected text */
+::selection { background: #ffe7d1; }
+::-moz-selection { background: #ffe7d1; }
+
 html, body { margin: 0; height: 100%; }
 
 /* desktop wallpaper: light orange + static dot pattern */
@@ -283,13 +287,18 @@ body {
 
 /* live markdown styling inside the composer (the syntax markers stay, dimmed) */
 .md-mark { opacity: .4; }
+/* finished code-fence markers are kept in the text (for the caret) but hidden */
+.md-fence { display: none; }
+/* the pixel input font draws "`" like a dash; backticks use a real monospace */
+.md-tick, .md-code-inline {
+  font-family: "JetBrainsMono Nerd Font", "FiraCode Nerd Font", ui-monospace, monospace;
+}
 .md-b { font-weight: 800; }
 .md-i { font-style: italic; }
 .md-h1 { font-size: 1.45em; font-weight: 800; line-height: 1.25; }
 .md-h2 { font-size: 1.25em; font-weight: 800; line-height: 1.3; }
 .md-h3 { font-size: 1.08em; font-weight: 800; }
 .md-code-inline {
-  font-family: "Modeseven", monospace;
   background: #f1e2cf;
   border: 1px solid #e7cba6;
   border-radius: 3px;

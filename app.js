@@ -636,6 +636,9 @@ function renderInline(line) {
     `${pre}<em class="md-i"><span class="md-mark">*</span>${t}<span class="md-mark">*</span></em>`);
   s = s.replace(/(^|[^\w])_(?=\S)([^_\n]+?)(?<=\S)_(?!\w)/g, (m, pre, t) =>
     `${pre}<em class="md-i"><span class="md-mark">_</span>${t}<span class="md-mark">_</span></em>`);
+  // any backtick left over (not part of finished inline code) -> show it in a
+  // real monospace, since the pixel input font draws "`" like a dash.
+  s = s.replace(/`/g, '<span class="md-tick">`</span>');
   return s.replace(/(\d+)/g, (m, i) => stash[+i]);
 }
 
@@ -661,10 +664,27 @@ function buildHtml(text) {
       let j = i + 1, closed = false;
       while (j < lines.length) { if (/^```\s*$/.test(lines[j])) { closed = true; break; } j++; }
       const end = closed ? j : lines.length - 1;           // last consumed line
-      const raw = lines.slice(i, end + 1).join("\n");
-      const code = lines.slice(i + 1, (closed ? j : lines.length)).join("\n");
-      const lang = open[1].trim() || detectLang(code);
-      parts.push(`<span class="md-code" data-lang="${escapeHtml(lang)}">${escapeHtml(raw)}</span>`);
+      const openLine = lines[i];
+      const bodyLines = lines.slice(i + 1, closed ? j : lines.length);
+      const body = bodyLines.join("\n");
+      const lang = open[1].trim() || detectLang(body);
+      let inner;
+      if (closed) {
+        // finished block: hide BOTH fences (each owns its adjacent newline) so
+        // only the highlighted code shows -- the ``` markers "disappear".
+        const closeLine = lines[j];
+        const openFence = escapeHtml(openLine + "\n");
+        const closeFence = escapeHtml(bodyLines.length ? "\n" + closeLine : closeLine);
+        inner = `<span class="md-fence">${openFence}</span>` +
+                `<span class="md-codebody">${escapeHtml(body)}</span>` +
+                `<span class="md-fence">${closeFence}</span>`;
+      } else {
+        // still being typed (no closing fence yet): keep the opening fence
+        // visible + dimmed so you can see and edit the language.
+        inner = `<span class="md-mark">${escapeHtml(openLine)}</span>` +
+                (bodyLines.length ? "\n<span class=\"md-codebody\">" + escapeHtml(body) + "</span>" : "");
+      }
+      parts.push(`<span class="md-code" data-lang="${escapeHtml(lang)}">${inner}</span>`);
       i = end + 1;
     } else {
       parts.push(renderLine(lines[i]));
@@ -699,11 +719,44 @@ function insertText(str) {
   updateCharCount();
 }
 
-function clearEditor() { editor.innerHTML = ""; updateCharCount(); }
+function clearEditor() { editor.innerHTML = ""; updateCharCount(); resetHistory(); }
 function setEditorDisabled(d) {
   editor.contentEditable = d ? "false" : "true";
   editor.classList.toggle("disabled", d);
 }
+
+// --- undo / redo ---
+// Rewriting innerHTML on every keystroke wipes the browser's native undo stack,
+// so we keep our own. Each entry is {text, caret}. Rapid typing coalesces into
+// one step; newlines / pastes / IME commits start a fresh step.
+let history = [{ text: "", caret: 0 }];
+let histIndex = 0;
+let lastEditAt = 0;
+function snapshot() {
+  const c = getCaretOffset(editor);
+  const text = editorText();
+  return { text, caret: c == null ? text.length : c };
+}
+function recordChange(coalesce) {
+  const state = snapshot();
+  const now = Date.now();
+  if (histIndex < history.length - 1) history.length = histIndex + 1; // drop redo tail
+  if (coalesce && now - lastEditAt < 450 && histIndex > 0) {
+    history[histIndex] = state;        // fold a fast burst of typing into one step
+  } else {
+    history.push(state);
+    histIndex = history.length - 1;
+  }
+  lastEditAt = now;
+}
+function restoreState(state) {
+  editor.innerHTML = buildHtml(state.text);
+  setCaretOffset(editor, state.caret);
+  updateCharCount();
+}
+function undo() { if (histIndex > 0) { histIndex--; restoreState(history[histIndex]); } }
+function redo() { if (histIndex < history.length - 1) { histIndex++; restoreState(history[histIndex]); } }
+function resetHistory() { history = [{ text: "", caret: 0 }]; histIndex = 0; lastEditAt = 0; }
 
 // rich paste -> markdown, so pasting formatted text keeps its formatting
 function htmlToMarkdown(html) {
@@ -738,11 +791,21 @@ if (editor) {
   editor.addEventListener("input", () => {
     if (isComposing) { updateCharCount(); return; } // let the IME finish first
     render(true);
+    recordChange(true);
   });
   editor.addEventListener("compositionstart", () => { isComposing = true; });
-  editor.addEventListener("compositionend", () => { isComposing = false; render(true); });
+  editor.addEventListener("compositionend", () => {
+    isComposing = false; render(true); recordChange(false);
+  });
 
   editor.addEventListener("keydown", (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && !e.shiftKey && e.key.toLowerCase() === "z") {
+      e.preventDefault(); undo(); return;                       // Ctrl/Cmd+Z
+    }
+    if (mod && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) {
+      e.preventDefault(); redo(); return;                       // Ctrl+Y / Ctrl+Shift+Z
+    }
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !isComposing) {
       e.preventDefault();
       const msg = editorText().trim();
@@ -750,6 +813,7 @@ if (editor) {
     } else if (e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
       insertText("\n");
+      recordChange(false);
     }
   });
 
@@ -759,7 +823,7 @@ if (editor) {
     let txt = cd ? cd.getData("text/plain") : "";
     const html = cd ? cd.getData("text/html") : "";
     if (html) { const md = htmlToMarkdown(html); if (md) txt = md; }
-    if (txt) insertText(txt);
+    if (txt) { insertText(txt); recordChange(false); }
   });
 
   updateCharCount();
