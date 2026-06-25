@@ -375,19 +375,14 @@ body {
 }
 
 /* ---- permission prompt ---- */
+/* a normal draggable window, just sized for a prompt (overrides .window size) */
 .perm-window {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 200000;            /* above everything, even the taskbar */
-  width: min(90vw, 340px);
-  background: var(--panel);
-  border: 2px solid var(--orange);
-  box-shadow: 6px 6px 0 var(--orange-soft);
+  width: min(92vw, 360px);
+  height: auto;
+  z-index: 50;
   animation: win-open .16s ease;
 }
-.perm-window[hidden] { display: none; }
 .perm-body { padding: 14px; }
 #perm-text {
   margin: 0 0 14px;

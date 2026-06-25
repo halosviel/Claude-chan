@@ -179,7 +179,8 @@ function toggleFullscreen(win) {
   }
 }
 
-document.querySelectorAll(".window").forEach((win) => {
+// the permission window is wired separately (its min/close reject the request)
+document.querySelectorAll(".window:not(#perm-window)").forEach((win) => {
   makeDraggable(win);
   makeResizable(win);
   const min = win.querySelector(".win-min");
@@ -432,13 +433,22 @@ form.addEventListener("submit", (e) => {
   sendMessage(input.value);
 });
 
-// --- permission prompt: shown when Claude-chan asks to do something ---
+// --- permission prompt: a real draggable window ---
+// Yes accepts; No / minimize / close all reject. Fullscreen just toggles.
 const permWindow = document.getElementById("perm-window");
 const permText = document.getElementById("perm-text");
+
 function showPermission(summary) {
   if (!permWindow) return;
   permText.textContent = summary;
-  permWindow.hidden = false;
+  permWindow.dataset.fs = "";
+  permWindow.style.cssText = "";   // clear any leftover drag/fullscreen styles
+  permWindow.style.display = "";    // -> .window flex
+  const w = permWindow.offsetWidth, h = permWindow.offsetHeight;
+  permWindow.style.position = "fixed";
+  permWindow.style.left = Math.max(8, (innerWidth - w) / 2) + "px";
+  permWindow.style.top = Math.max(8, (innerHeight - h) / 2 - 20) + "px";
+  permWindow.style.zIndex = String(++topZ);
   try {
     const a = new Audio("/permission-sound");
     a.volume = SOUND_SCALE;
@@ -446,11 +456,23 @@ function showPermission(summary) {
   } catch (e) { /* */ }
   dlog("permission requested:", summary);
 }
-function hidePermission() { if (permWindow) permWindow.hidden = true; }
-const permYes = document.getElementById("perm-yes");
-const permNo = document.getElementById("perm-no");
-if (permYes) permYes.addEventListener("click", () => { hidePermission(); sendMessage("yes, go ahead!"); });
-if (permNo) permNo.addEventListener("click", () => { hidePermission(); sendMessage("no, please don't."); });
+function hidePermission() { if (permWindow) permWindow.style.display = "none"; }
+function acceptPermission() { hidePermission(); sendMessage("yes, go ahead!"); }
+function rejectPermission() { hidePermission(); sendMessage("no, please don't."); }
+
+if (permWindow) {
+  makeDraggable(permWindow);
+  const pMin = permWindow.querySelector(".win-min");
+  const pMax = permWindow.querySelector(".win-max");
+  const pClose = permWindow.querySelector(".win-close");
+  if (pMin) pMin.addEventListener("click", rejectPermission);   // minimize = reject
+  if (pClose) pClose.addEventListener("click", rejectPermission); // close = reject
+  if (pMax) pMax.addEventListener("click", () => toggleFullscreen(permWindow));
+  const permYes = document.getElementById("perm-yes");
+  const permNo = document.getElementById("perm-no");
+  if (permYes) permYes.addEventListener("click", acceptPermission);
+  if (permNo) permNo.addEventListener("click", rejectPermission);
+}
 
 // Pick a fresh picture on load.
 setEmotion("happy");

@@ -104,12 +104,17 @@
     <span class="clock" id="clock"></span>
   </div>
 
-  <!-- permission prompt (shown when Claude-chan asks to do something) -->
-  <div class="perm-window" id="perm-window" hidden>
+  <!-- permission prompt: a real draggable window (min/close = reject) -->
+  <div class="window perm-window" id="perm-window" style="display:none">
     <div class="titlebar">
-      <span class="win-title"><span class="ico">❓</span> Claude-chan wants to…</span>
+      <span class="win-title"><span class="ico">❓</span> Permission needed</span>
+      <span class="win-buttons">
+        <button class="win-min" type="button" title="minimize (reject)">_</button>
+        <button class="win-max" type="button" title="fullscreen">□</button>
+        <button class="win-close" type="button" title="close (reject)">✕</button>
+      </span>
     </div>
-    <div class="perm-body">
+    <div class="win-body perm-body">
       <p id="perm-text"></p>
       <div class="perm-buttons">
         <button id="perm-yes" type="button">Yes</button>
