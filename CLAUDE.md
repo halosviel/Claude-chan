@@ -14,7 +14,6 @@ deletable — everything voice-related lives OUTSIDE the folder (see "Voices").
 
 1. **Never regenerate or overwrite anything in `assets/emotions/`.** The user
    hand-curates the per-emotion folders, intentionally leaving some empty.
-   `generate_avatars.py` exists for history only — **do not run it.**
 2. **No robotic / fallback voice.** Voice is **AivisSpeech only**. If the engine
    is down, the app stays silent and logs why — that is intended.
 3. Editing the user's files: they prefer **nvim**; creating new files is fine.
@@ -30,7 +29,6 @@ deletable — everything voice-related lives OUTSIDE the folder (see "Voices").
 | `assets/emotions/<emotion>/*.png` | Mood portraits (user-owned). Emotions: happy, talking, thinking, angry, sad, laughing, embarrassed. |
 | `assets/backgrounds/*.png` | Scene images for the background selector (set behind the avatar). |
 | `assets/fonts/` | Bundled fonts: `Snowbell` (primary/chrome) and `Modeseven` (sub/content), via `@font-face`. Title uses Google `Sacramento`. |
-| `generate_avatars.py` | **Do not run.** Made the original placeholders. |
 | `.vscode/launch.json` | "Run Claude_chan" (F5). |
 
 ### The "no API" chat

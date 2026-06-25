@@ -32,9 +32,7 @@ IMAGES  (assets/emotions/<emotion>/*.png)  *** DO NOT REGENERATE OR OVERWRITE **
   The user hand-curates these folders (some intentionally empty). pick_image()
   returns a random PNG from assets/emotions/<emotion>/, never repeating the last
   one, and falls back to assets/emotions/thinking/ when a folder is empty (BY
-  DESIGN, not a bug). generate_avatars.py made the original placeholders -- do
-  NOT run it; it would clobber the user's pictures. Emotions: happy, talking,
-  thinking,
+  DESIGN, not a bug). Emotions: happy, talking, thinking,
   angry, sad, laughing, embarrassed.
 
 VOICE  (see the AivisSpeech section lower in this file + CLAUDE.md)

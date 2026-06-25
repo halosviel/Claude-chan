@@ -74,9 +74,6 @@ other machines:
 
 - Run it with whatever launches Python 3 there (`python server.py` on Windows,
   `python3 server.py` on macOS/Linux).
-- The placeholder avatars were generated with `rsvg-convert` (`generate_avatars.py`).
-  You usually don't need to re-run that — the PNGs are already committed in
-  `images/`. Just dropping in your own PNGs (below) is the normal path.
 
 ## Swapping in your own images
 
@@ -86,8 +83,8 @@ There's one folder per mood under `images/`:
 images/happy/  talking/  thinking/  angry/  sad/  laughing/  embarrassed/
 ```
 
-The PNGs in them are simple drawn placeholders (made by `generate_avatars.py`)
-so the app works offline without any copyright worries.
+The PNGs in them are simple drawn placeholders so the app works offline without
+any copyright worries.
 
 To use real pictures, **just drop PNG files into the matching mood folder** —
 no code changes needed. The server scans the folder live, picks a random PNG
