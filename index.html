@@ -34,7 +34,12 @@
         </div>
 
         <div class="input-section">
-          <div class="subbar"><span class="ico">💬</span> input</div>
+          <div class="subbar">
+            <span class="subbar-label"><span class="ico">💬</span> input</span>
+            <label class="model-pick"><span class="ico">🧠</span>
+              <select id="model-select" title="chat model"></select>
+            </label>
+          </div>
           <form id="chat-form" autocomplete="off">
             <input id="input" type="text" placeholder="say something..." autofocus>
           </form>

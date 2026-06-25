@@ -74,6 +74,42 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("input");
 const voiceNote = document.getElementById("voice-note");
 
+// --- chat model selector ---
+// The dropdown is filled from /models (the server is the source of truth). The
+// pick is remembered in localStorage and sent with every /chat request, so it
+// also survives a reload. Falls back to the server's default if unset/unknown.
+const modelSelect = document.getElementById("model-select");
+const MODEL_KEY = "claudechan.model";
+let currentModel = localStorage.getItem(MODEL_KEY) || "";
+
+fetch("/models")
+  .then((r) => r.json())
+  .then((d) => {
+    const models = d.models || [];
+    if (modelSelect) {
+      modelSelect.innerHTML = "";
+      models.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = m.label || m.id;
+        modelSelect.appendChild(opt);
+      });
+    }
+    const ids = models.map((m) => m.id);
+    if (!ids.includes(currentModel)) currentModel = d.default || ids[0] || "";
+    if (modelSelect) modelSelect.value = currentModel;
+    dlog("/models ->", { count: models.length, selected: currentModel });
+  })
+  .catch((e) => dlog("/models error:", e));
+
+if (modelSelect) {
+  modelSelect.addEventListener("change", () => {
+    currentModel = modelSelect.value;
+    localStorage.setItem(MODEL_KEY, currentModel);
+    dlog("model ->", currentModel);
+  });
+}
+
 // --- draggable XP-style windows ---
 // Grab a window by its titlebar to move it. On first drag the window switches
 // to fixed positioning at its current spot (so it leaves the centered layout).
@@ -428,7 +464,7 @@ async function sendMessage(message) {
     const res = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, model: currentModel }),
     });
     const data = await res.json();
     dlog("chat response:", { emotion: data.emotion, text: data.text,

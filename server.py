@@ -22,11 +22,12 @@ HOW THE "NO API" CHAT WORKS
 HTTP ENDPOINTS (all served on 127.0.0.1:PORT, default 8765)
   GET  /                      static files (index.html, style.css, app.js, assets/)
   GET  /image?emotion=<e>     -> {emotion, image}  picks a random PNG (see below)
+  GET  /models                -> {models: [{id, label}], default}  chat model menu
   GET  /tts                   -> {server: bool, engine: "aivisspeech"|null}
   GET  /speak?text=<jp>       -> WAV audio bytes (or 503 if engine down)
   GET  /backgrounds           -> {backgrounds: [filenames in assets/backgrounds/]}
   GET  /permission-sound      -> the permission mp3
-  POST /chat  {message}       -> {emotion, text, speech, permission, image}
+  POST /chat  {message, model?} -> {emotion, text, speech, permission, image}
 
 IMAGES  (assets/emotions/<emotion>/*.png)  *** DO NOT REGENERATE OR OVERWRITE ***
   The user hand-curates these folders (some intentionally empty). pick_image()
@@ -63,9 +64,21 @@ BACKGROUNDS_DIR = os.path.join(ROOT, "assets", "backgrounds")
 PERMISSION_SOUND = os.path.expanduser("~/Local/Rice/Sounds/claude_permission.mp3")
 SESSION_ID = str(uuid.uuid4())
 STATE = {"started": False}
-# Model for the chat. Haiku is much faster than Opus and plenty for short,
-# casual replies. Override with CLAUDE_MODEL=sonnet (or opus) for richer ones.
-CHAT_MODEL = os.environ.get("CLAUDE_MODEL", "haiku")
+# Chat models the user can pick from in the UI (sent per-message). The `claude`
+# CLI resolves these short aliases. Haiku is fastest and plenty for short, casual
+# replies; Sonnet is balanced; Opus is the richest (and slowest). The frontend
+# fills its dropdown from GET /models, so this list is the single source of truth.
+CHAT_MODELS = [
+    {"id": "haiku", "label": "Haiku · fast"},
+    {"id": "sonnet", "label": "Sonnet · balanced"},
+    {"id": "opus", "label": "Opus · richest"},
+]
+ALLOWED_MODELS = {m["id"] for m in CHAT_MODELS}
+# Default model + fallback for an unknown/empty request. Override the default
+# with CLAUDE_MODEL=sonnet (or opus).
+DEFAULT_MODEL = os.environ.get("CLAUDE_MODEL", "haiku")
+if DEFAULT_MODEL not in ALLOWED_MODELS:
+    DEFAULT_MODEL = "haiku"
 
 # The voice is spoken entirely by AivisSpeech -- a local engine on :10101 with
 # natural, expressive anime voices. There is no fallback: if it isn't running,
@@ -218,7 +231,8 @@ def read_personality():
         return ""
 
 
-def run_claude(prompt):
+def run_claude(prompt, model=None):
+    model = model if model in ALLOWED_MODELS else DEFAULT_MODEL
     system = SYSTEM_PROMPT
     personality = read_personality()
     if personality:
@@ -226,7 +240,7 @@ def run_claude(prompt):
                    "who you are) ---\n" + personality)
     cmd = [
         "claude", "-p", prompt,
-        "--model", CHAT_MODEL,
+        "--model", model,
         "--output-format", "json",
         "--append-system-prompt", system,
     ]
@@ -304,6 +318,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             emotion = (qs.get("emotion", ["thinking"])[0] or "thinking").lower()
             self._json({"emotion": emotion, "image": pick_image(emotion)})
             return
+        if parsed.path == "/models":
+            # The chat-model menu + which one is selected by default.
+            self._json({"models": CHAT_MODELS, "default": DEFAULT_MODEL})
+            return
         if parsed.path == "/tts":
             # Tells the frontend whether the AivisSpeech engine can speak.
             up = engine_up()
@@ -347,13 +365,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         try:
             payload = json.loads(self.rfile.read(length) or b"{}")
             message = (payload.get("message") or "").strip()
+            model = (payload.get("model") or "").strip()
         except (json.JSONDecodeError, ValueError):
             message = ""
+            model = ""
         if not message:
             self._json({"emotion": "thinking", "text": "...you didn't say anything.",
                         "speech": "", "permission": "", "image": pick_image("thinking")})
             return
-        emotion, text, speech, permission = run_claude(message)
+        emotion, text, speech, permission = run_claude(message, model)
         self._json({"emotion": emotion, "text": text, "speech": speech,
                     "permission": permission, "image": pick_image(emotion)})
 
