@@ -20,7 +20,7 @@ HOW THE "NO API" CHAT WORKS
   the result into (emotion, english_text, japanese_speech).
 
 HTTP ENDPOINTS (all served on 127.0.0.1:PORT, default 8765)
-  GET  /                      static files (index.html, style.css, app.js, assets/, fonts/)
+  GET  /                      static files (index.html, style.css, app.js, assets/)
   GET  /image?emotion=<e>     -> {emotion, image}  picks a random PNG (see below)
   GET  /tts                   -> {server: bool, engine: "aivisspeech"|null}
   GET  /speak?text=<jp>       -> WAV audio bytes (or 503 if engine down)

@@ -20,20 +20,48 @@
 // reports no engine.
 // ============================================================================
 // Verbose debug logging -> browser console (F12) AND the in-app terminal window.
-// Flip DEBUG to false to mute.
+// Flip DEBUG to false to mute. The terminal NEVER scrolls: it shows only as many
+// of the most-recent lines as fit, dropping older ones (re-rendered on resize).
 const DEBUG = true;
+const LOG_MAX = 500;       // in-memory backlog cap
+const logBuffer = [];
+
+// Render the most recent lines that fit the terminal (oldest at top), no scroll.
+function renderTerm() {
+  const termLog = document.getElementById("term-log");
+  if (!termLog) return;
+  termLog.innerHTML = "";
+  for (let i = logBuffer.length - 1; i >= 0; i--) {
+    const div = document.createElement("div");
+    div.textContent = logBuffer[i];
+    termLog.appendChild(div);
+    if (termLog.scrollHeight > termLog.clientHeight && termLog.children.length > 1) {
+      termLog.removeChild(div); // this oldest-visible line no longer fits
+      break;
+    }
+  }
+  // we appended newest-first; flip to chronological order (oldest top)
+  Array.from(termLog.children).reverse().forEach((k) => termLog.appendChild(k));
+}
+
 function dlog(...args) {
   if (!DEBUG) return;
   console.log("%c[claude-chan]", "color:#e8893a;font-weight:bold", ...args);
-  const termLog = document.getElementById("term-log");
-  if (termLog) {
-    const line = document.createElement("div");
-    line.textContent = "[" + new Date().toTimeString().slice(0, 8) + "] " +
-      args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" ");
-    termLog.appendChild(line);
-    termLog.scrollTop = termLog.scrollHeight;
-  }
+  logBuffer.push("[" + new Date().toTimeString().slice(0, 8) + "] " +
+    args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "));
+  if (logBuffer.length > LOG_MAX) logBuffer.shift();
+  renderTerm();
 }
+
+// Re-fit the terminal whenever its size changes (window resize, drag-resize,
+// fullscreen, open/close) so messages are added/removed to match the size.
+(function () {
+  const termLog = document.getElementById("term-log");
+  if (termLog && window.ResizeObserver) {
+    new ResizeObserver(() => renderTerm()).observe(termLog);
+  }
+})();
+
 dlog("app.js loaded");
 
 // Master sound volume: every sound in the app (voice, chime, permission, ...)

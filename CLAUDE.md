@@ -29,7 +29,7 @@ deletable — everything voice-related lives OUTSIDE the folder (see "Voices").
 | `index.html` / `style.css` / `app.js` | Frontend. `app.js` header explains the submit flow + audio sync. |
 | `assets/emotions/<emotion>/*.png` | Mood portraits (user-owned). Emotions: happy, talking, thinking, angry, sad, laughing, embarrassed. |
 | `assets/backgrounds/*.png` | Scene images for the background selector (set behind the avatar). |
-| `fonts/` | Bundled fonts: `Snowbell` (primary/chrome) and `Modeseven` (sub/content), via `@font-face`. Title uses Google `Sacramento`. |
+| `assets/fonts/` | Bundled fonts: `Snowbell` (primary/chrome) and `Modeseven` (sub/content), via `@font-face`. Title uses Google `Sacramento`. |
 | `generate_avatars.py` | **Do not run.** Made the original placeholders. |
 | `.vscode/launch.json` | "Run Claude_chan" (F5). |
 

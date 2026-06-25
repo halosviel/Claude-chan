@@ -1,12 +1,12 @@
 /* local bundled fonts */
 @font-face {
   font-family: "Snowbell";
-  src: url("fonts/Snowbell-Wp4g9.ttf") format("truetype");
+  src: url("assets/fonts/Snowbell-Wp4g9.ttf") format("truetype");
   font-display: swap;
 }
 @font-face {
   font-family: "Modeseven";
-  src: url("fonts/Modeseven-L3n5.ttf") format("truetype");
+  src: url("assets/fonts/Modeseven-L3n5.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -275,7 +275,7 @@ body {
 .term-log {
   width: 100%;
   height: 100%;
-  overflow: auto;
+  overflow: hidden;
   font-family: var(--font-sub);
   font-size: 0.8rem;
   line-height: 1.4;
