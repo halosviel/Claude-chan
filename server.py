@@ -65,6 +65,9 @@ BACKGROUNDS_DIR = os.path.join(ROOT, "assets", "backgrounds")
 PERMISSION_SOUND = os.path.expanduser("~/Local/Rice/Sounds/claude_permission.mp3")
 SESSION_ID = str(uuid.uuid4())
 STATE = {"started": False}
+# Model for the chat. Haiku is much faster than Opus and plenty for short,
+# casual replies. Override with CLAUDE_MODEL=sonnet (or opus) for richer ones.
+CHAT_MODEL = os.environ.get("CLAUDE_MODEL", "haiku")
 
 # The voice is spoken entirely by AivisSpeech -- a local engine on :10101 with
 # natural, expressive anime voices. There is no fallback: if it isn't running,
@@ -218,6 +221,7 @@ def run_claude(prompt):
                    "who you are) ---\n" + personality)
     cmd = [
         "claude", "-p", prompt,
+        "--model", CHAT_MODEL,
         "--output-format", "json",
         "--append-system-prompt", system,
     ]
