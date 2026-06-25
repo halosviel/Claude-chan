@@ -12,7 +12,7 @@ deletable — everything voice-related lives OUTSIDE the folder (see "Voices").
 
 ## ⚠️ Hard rules (the user has stated these)
 
-1. **Never regenerate or overwrite anything in `images/`.** The user
+1. **Never regenerate or overwrite anything in `assets/emotions/`.** The user
    hand-curates the per-emotion folders, intentionally leaving some empty.
    `generate_avatars.py` exists for history only — **do not run it.**
 2. **No robotic / fallback voice.** Voice is **AivisSpeech only**. If the engine
@@ -27,7 +27,9 @@ deletable — everything voice-related lives OUTSIDE the folder (see "Voices").
 |------|------|
 | `server.py` | Python **stdlib-only** HTTP server (port **8765**). Chat + image + TTS endpoints. Has a long header comment. |
 | `index.html` / `style.css` / `app.js` | Frontend. `app.js` header explains the submit flow + audio sync. |
-| `images/<emotion>/*.png` | Mood portraits (user-owned). Emotions: happy, talking, thinking, angry, sad, laughing, embarrassed. |
+| `assets/emotions/<emotion>/*.png` | Mood portraits (user-owned). Emotions: happy, talking, thinking, angry, sad, laughing, embarrassed. |
+| `assets/backgrounds/*.png` | Scene images for the background selector (set behind the avatar). |
+| `fonts/` | Bundled fonts: `Snowbell` (primary/chrome) and `Modeseven` (sub/content), via `@font-face`. Title uses Google `Sacramento`. |
 | `generate_avatars.py` | **Do not run.** Made the original placeholders. |
 | `.vscode/launch.json` | "Run Claude_chan" (F5). |
 
@@ -41,10 +43,11 @@ First turn `--session-id <uuid>`, later turns `--resume <uuid>` → keeps contex
 ### HTTP endpoints (127.0.0.1:8765)
 - `GET /` — static files
 - `GET /image?emotion=<e>` → `{emotion, image}` — random non-repeating PNG from
-  `images/<e>/`, falling back to `images/thinking/` if empty
+  `assets/emotions/<e>/`, falling back to `assets/emotions/thinking/` if empty
 - `GET /tts` → `{server: bool, engine: "aivisspeech"|null}`
 - `GET /speak?text=<jp>` → WAV bytes (503 if engine down)
-- `POST /chat {message}` → `{emotion, text, speech, image}`
+- `GET /backgrounds` → `{backgrounds: [...]}` ; `GET /permission-sound` → mp3
+- `POST /chat {message}` → `{emotion, text, speech, permission, image}`
 
 ### Frontend sync (important, user-requested)
 On submit: show "thinking" image + `...`; POST `/chat`; then `prepareSpeech()`

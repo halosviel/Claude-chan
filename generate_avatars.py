@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(ROOT, "images")
+OUT = os.path.join(ROOT, "assets", "emotions")
 SIZE = 400  # rendered PNG resolution (displayed at 280px, so this stays crisp)
 
 # Mood -> accent colour used for the rounded background tile.

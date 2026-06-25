@@ -11,9 +11,9 @@
 //      down / synth fails, text+image just appear instantly (nothing to wait
 //      for). This sync behavior was specifically requested by the user.
 //
-// Image selection is OWNED BY THE SERVER: it scans images/<emotion>/, picks a
-// random non-repeating PNG, falls back to images/thinking/ when empty. To add
-// pictures the user just drops PNGs into the matching folder -- no code changes.
+// Image selection is OWNED BY THE SERVER: it scans assets/emotions/<emotion>/,
+// picks a random non-repeating PNG, falls back to assets/emotions/thinking/ when
+// empty. To add pictures the user just drops PNGs into the matching folder.
 //
 // Voice: server-only (AivisSpeech), played at a fixed 70% volume
 // (VOICE_VOLUME). The voice-note <p id="voice-note"> shows a hint when /tts
@@ -237,7 +237,7 @@ tick();
 setInterval(tick, 1000);
 
 // --- background selector ---
-// Lists images/backgrounds/ as links; clicking one sets the scene BEHIND the
+// Lists assets/backgrounds/ as links; clicking one sets the scene BEHIND the
 // (transparent) Claude-chan image so she appears in it, and plays a cute chime.
 const portraitBody = document.querySelector(".portrait-body");
 const bgList = document.getElementById("bg-list");
@@ -263,7 +263,7 @@ function playChime() {
 }
 function setScene(file) {
   if (portraitBody) {
-    portraitBody.style.backgroundImage = 'url("images/backgrounds/' + encodeURI(file) + '")';
+    portraitBody.style.backgroundImage = 'url("assets/backgrounds/' + encodeURI(file) + '")';
   }
   dlog("scene ->", file);
 }

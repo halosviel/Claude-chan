@@ -20,18 +20,21 @@ HOW THE "NO API" CHAT WORKS
   the result into (emotion, english_text, japanese_speech).
 
 HTTP ENDPOINTS (all served on 127.0.0.1:PORT, default 8765)
-  GET  /                      static files (index.html, style.css, app.js, images/)
+  GET  /                      static files (index.html, style.css, app.js, assets/, fonts/)
   GET  /image?emotion=<e>     -> {emotion, image}  picks a random PNG (see below)
   GET  /tts                   -> {server: bool, engine: "aivisspeech"|null}
   GET  /speak?text=<jp>       -> WAV audio bytes (or 503 if engine down)
-  POST /chat  {message}       -> {emotion, text, speech, image}
+  GET  /backgrounds           -> {backgrounds: [filenames in assets/backgrounds/]}
+  GET  /permission-sound      -> the permission mp3
+  POST /chat  {message}       -> {emotion, text, speech, permission, image}
 
-IMAGES  (images/<emotion>/*.png)  *** DO NOT REGENERATE OR OVERWRITE ***
+IMAGES  (assets/emotions/<emotion>/*.png)  *** DO NOT REGENERATE OR OVERWRITE ***
   The user hand-curates these folders (some intentionally empty). pick_image()
-  returns a random PNG from images/<emotion>/, never repeating the last one,
-  and falls back to images/thinking/ when a folder is empty (this is BY DESIGN,
-  not a bug). generate_avatars.py made the original placeholders -- do NOT run
-  it; it would clobber the user's pictures. Emotions: happy, talking, thinking,
+  returns a random PNG from assets/emotions/<emotion>/, never repeating the last
+  one, and falls back to assets/emotions/thinking/ when a folder is empty (BY
+  DESIGN, not a bug). generate_avatars.py made the original placeholders -- do
+  NOT run it; it would clobber the user's pictures. Emotions: happy, talking,
+  thinking,
   angry, sad, laughing, embarrassed.
 
 VOICE  (see the AivisSpeech section lower in this file + CLAUDE.md)
@@ -56,8 +59,8 @@ import uuid
 
 PORT = 8765
 ROOT = os.path.dirname(os.path.abspath(__file__))
-EMOTIONS_DIR = os.path.join(ROOT, "images", "emotions")
-BACKGROUNDS_DIR = os.path.join(ROOT, "images", "backgrounds")
+EMOTIONS_DIR = os.path.join(ROOT, "assets", "emotions")
+BACKGROUNDS_DIR = os.path.join(ROOT, "assets", "backgrounds")
 # played when Claude-chan asks permission (lives outside the repo)
 PERMISSION_SOUND = os.path.expanduser("~/Local/Rice/Sounds/claude_permission.mp3")
 SESSION_ID = str(uuid.uuid4())
@@ -90,9 +93,9 @@ def list_pngs(folder):
 
 
 def pick_image(emotion):
-    """Pick a random PNG from images/emotions/<emotion>/, avoiding an immediate
-    repeat. If that folder has no PNGs, fall back to images/emotions/thinking/.
-    Returns a web path (e.g. "images/emotions/happy/foo.png") or None.
+    """Pick a random PNG from assets/emotions/<emotion>/, avoiding an immediate
+    repeat. If that folder has no PNGs, fall back to assets/emotions/thinking/.
+    Returns a web path (e.g. "assets/emotions/happy/foo.png") or None.
     """
     if emotion not in EMOTIONS:
         emotion = "talking"
@@ -107,11 +110,11 @@ def pick_image(emotion):
     choices = [f for f in files if f != last] or files
     chosen = random.choice(choices)
     _LAST_PICK[folder] = chosen
-    return f"images/emotions/{folder}/{chosen}"
+    return f"assets/emotions/{folder}/{chosen}"
 
 
 def list_backgrounds():
-    """Filenames of every image in images/backgrounds/ (sorted)."""
+    """Filenames of every image in assets/backgrounds/ (sorted)."""
     if not os.path.isdir(BACKGROUNDS_DIR):
         return []
     return sorted(f for f in os.listdir(BACKGROUNDS_DIR)

@@ -1,3 +1,15 @@
+/* local bundled fonts */
+@font-face {
+  font-family: "Snowbell";
+  src: url("fonts/Snowbell-Wp4g9.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Modeseven";
+  src: url("fonts/Modeseven-L3n5.ttf") format("truetype");
+  font-display: swap;
+}
+
 :root {
   --bg: #fff3e0;           /* light warm cream */
   --panel: #fffaf2;        /* near-white panel fill */
@@ -6,12 +18,10 @@
   --text: #4a3a2a;
   --dot: rgba(232, 137, 58, .28);
   --taskbar-h: 38px;
-  /* Windows XP font stacks. Verdana is listed first because Tahoma isn't
-     installed here (fontconfig substitutes it with Noto); Verdana is its close
-     XP-era cousin. Trebuchet MS is the real XP title-bar font. */
-  --ui-font: Verdana, Tahoma, "DejaVu Sans", sans-serif;
-  --title-font: "Trebuchet MS", Verdana, "DejaVu Sans", sans-serif;
-  --term-font: "Lucida Console", Consolas, "DejaVu Sans Mono", monospace;
+  /* Snowbell = primary (chrome: title bars, taskbar, "input" header).
+     Modeseven = sub (content: subtitle bubble, input field, terminal, lists). */
+  --font-primary: "Snowbell", "Trebuchet MS", Verdana, sans-serif;
+  --font-sub: "Modeseven", "Lucida Console", monospace;
 }
 
 * { box-sizing: border-box; }
@@ -24,7 +34,7 @@ body {
   background-image: radial-gradient(var(--dot) 1.6px, transparent 1.7px);
   background-size: 22px 22px;
   color: var(--text);
-  font-family: var(--ui-font);
+  font-family: var(--font-sub);
   overflow: hidden;
 }
 
@@ -36,7 +46,7 @@ body {
   z-index: 1;
   text-align: center;
   margin: 0;
-  font-family: "Sacramento", var(--title-font);
+  font-family: "Sacramento", var(--font-primary);
   font-weight: normal;
   font-size: 3rem;
   color: var(--orange);
@@ -100,7 +110,7 @@ body {
   padding: 4px 4px 4px 8px;
   background: var(--orange);
   color: #fff;
-  font-family: var(--title-font);
+  font-family: var(--font-primary);
   font-weight: bold;
   font-size: 0.85rem;
   cursor: move;
@@ -223,7 +233,7 @@ body {
   width: 100%;
   padding: 9px 11px;
   font-size: 0.95rem;
-  font-family: var(--ui-font);
+  font-family: var(--font-sub);
   font-weight: 500;
   border: 2px solid var(--orange);
   background: #fff;
@@ -266,7 +276,7 @@ body {
   width: 100%;
   height: 100%;
   overflow: auto;
-  font-family: var(--term-font);
+  font-family: var(--font-sub);
   font-size: 0.8rem;
   line-height: 1.4;
   color: #ffcf8a;
@@ -287,7 +297,7 @@ body {
 .bg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; }
 .bg-heading {
   margin: 0 0 10px;
-  font-family: var(--title-font);
+  font-family: var(--font-primary);
   font-weight: bold;
   font-size: 1.1rem;
   color: var(--orange);
@@ -317,7 +327,7 @@ body {
   box-shadow: 0 -2px 0 var(--orange-soft);
 }
 .start-btn {
-  font-family: var(--ui-font);
+  font-family: var(--font-primary);
   font-weight: 700;
   font-size: 0.85rem;
   color: var(--text);
@@ -331,7 +341,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--ui-font);
+  font-family: var(--font-primary);
   font-size: 0.85rem;
   color: var(--text);
   background: var(--panel);
@@ -345,7 +355,7 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-family: var(--ui-font);
+  font-family: var(--font-primary);
   font-weight: 700;
   font-size: 0.85rem;
   color: #fff;
@@ -355,7 +365,7 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-family: var(--ui-font);
+  font-family: var(--font-primary);
   font-weight: 700;
   font-size: 0.85rem;
   color: #fff;
@@ -381,13 +391,13 @@ body {
 .perm-body { padding: 14px; }
 #perm-text {
   margin: 0 0 14px;
-  font-family: var(--ui-font);
+  font-family: var(--font-primary);
   font-size: 0.92rem;
   line-height: 1.5;
 }
 .perm-buttons { display: flex; justify-content: flex-end; gap: 10px; }
 .perm-buttons button {
-  font-family: var(--ui-font);
+  font-family: var(--font-primary);
   font-size: 0.85rem;
   padding: 5px 18px;
   border: 2px solid var(--orange);
