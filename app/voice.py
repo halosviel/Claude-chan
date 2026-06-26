@@ -39,21 +39,28 @@ def list_voices():
         if name in config.MALE_VOICES:
             continue
 
-        # romanise the speaker name (fall back to the original)
+        styles = speaker.get("styles", [])
+
+        if not styles:
+            continue
+
+        # keep only the original (Normal) style -- drop the variations
+        base = next((st for st in styles if st.get("name") == "ノーマル"), styles[0])
         display = config.VOICE_NAME_ROMAJI.get(name, name)
+        voices.append({"id": base.get("id"), "name": display})
 
-        for style in speaker.get("styles", []):
-            style_name = style.get("name", "")
-            style_label = config.VOICE_STYLE_ROMAJI.get(style_name, style_name)
+    # label the default voice and move it to the top of the list
+    default = []
+    rest = []
 
-            if not style_label or style_name == "ノーマル":
-                label = display
-            else:
-                label = "%s (%s)" % (display, style_label)
+    for voice in voices:
+        if voice["id"] == config.AIVIS_SPEAKER:
+            voice["name"] = voice["name"] + " (default)"
+            default.append(voice)
+        else:
+            rest.append(voice)
 
-            voices.append({"id": style.get("id"), "name": label})
-
-    return voices
+    return default + rest
 
 
 # Return True when the AivisSpeech engine answers its /version endpoint.
