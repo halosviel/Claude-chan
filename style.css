@@ -325,9 +325,11 @@ body.lang-ja .vn-panel-en { display: none; }
    Anchored to the bottom so it grows upward as the reply gets longer. */
 .dialogue {
   position: absolute;
-  left: 15px;
-  right: 15px;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: 15px;
+  width: calc(100% - 30px);   /* 15px inset each side... */
+  max-width: 690px;           /* ...but cap it ~30% over its default width */
   z-index: 2;
   padding: 8px 13px 11px;
   background: linear-gradient(to bottom, rgba(116, 98, 84, .34), rgba(28, 20, 14, .54));
