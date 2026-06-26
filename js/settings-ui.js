@@ -7,6 +7,7 @@
 // ===========================================================================
 
 import { qs, fetchJson } from "./util/dom.js";
+import { playSound, playKey } from "./util/sound.js";
 import { showWindowCentered, hideWindow } from "./windowing.js";
 import { getSettings, setSetting } from "./settings.js";
 
@@ -37,6 +38,7 @@ function buildSlider(key, label) {
 
     value.textContent = v + "%";
     setSetting(key, v);
+    playKey();
   });
 
   head.appendChild(name);
@@ -94,7 +96,10 @@ async function buildVoiceList(container) {
     radio.name = "voice";
     radio.value = id;
     radio.checked = id === chosen;
-    radio.addEventListener("change", () => setSetting("voiceId", id));
+    radio.addEventListener("change", () => {
+      setSetting("voiceId", id);
+      playSound("click");
+    });
     text.textContent = voice.name;
 
     label.appendChild(radio);
