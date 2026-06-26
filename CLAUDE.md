@@ -22,21 +22,29 @@ deletable — everything voice-related lives OUTSIDE the folder (see "Voices").
 
 ## Architecture
 
-| File | Role |
+The code is modular and dependency-free (no build step). Two short explainer
+files describe the whole codebase: **`robots.txt`** (for AI) and **`humans.txt`**
+(for humans) — read those first. Comments sit **on top of functions**
+(Windows-developer style), special behaviors are factored into reusable utils,
+and there are no inline comments.
+
+| Path | Role |
 |------|------|
-| `server.py` | Python **stdlib-only** HTTP server (port **8765**). Chat + image + TTS endpoints. Has a long header comment. |
-| `index.html` / `style.css` / `app.js` | Frontend. `app.js` header explains the submit flow + audio sync. |
+| `server.py` | Thin entry point: runs `app.server.main()` (F5 / `python3 server.py`). |
+| `app/` | Backend package: `config.py` (constants + `SYSTEM_PROMPT`), `images.py` (portraits/backgrounds), `voice.py` (AivisSpeech), `chat.py` (`run_claude`/`parse`), `server.py` (HTTP Handler + `main`). |
+| `index.html` / `style.css` | Page shell + styles. Loads `js/main.js` as a module. |
+| `js/` | Frontend ES modules. Entry `main.js` wires the rest. Utilities in `js/util/` (`dom`, `sound`, `animation`). Feature modules: `log`, `markdown`, `windowing`, `startmenu`, `clock`, `avatar`, `backgrounds`, `voice`, `models`, `editor`, `chat`. |
 | `assets/emotions/<emotion>/*.png` | Mood portraits (user-owned). Emotions: happy, talking, thinking, angry, sad, laughing, embarrassed. |
 | `assets/backgrounds/*.png` | Scene images for the background selector (set behind the avatar). |
 | `assets/fonts/` | Bundled fonts: `Snowbell` (primary/chrome) and `Modeseven` (sub/content), via `@font-face`. Title uses Google `Sacramento`. |
 | `.vscode/launch.json` | "Run Claude_chan" (F5). |
 
 ### The "no API" chat
-`run_claude()` runs: `claude -p <msg> --output-format json --append-system-prompt <SYSTEM_PROMPT>`.
+`app/chat.py`'s `run_claude()` runs: `claude -p <msg> --output-format json --append-system-prompt <SYSTEM_PROMPT>`.
 First turn `--session-id <uuid>`, later turns `--resume <uuid>` → keeps context.
-`SYSTEM_PROMPT` tells the model to (a) start each reply with a mood tag like
-`[happy]`, and (b) end with `###JP### <kana>` — the Japanese line for the voice.
-`parse()` splits the result into `(emotion, english_text, japanese_speech)`.
+`SYSTEM_PROMPT` (in `app/config.py`) tells the model to (a) start each reply with
+a mood tag like `[happy]`, and (b) end with `###JP### <kana>` — the Japanese line
+for the voice. `parse()` splits the result into `(emotion, english, speech, permission)`.
 
 ### HTTP endpoints (127.0.0.1:8765)
 - `GET /` — static files
@@ -47,11 +55,16 @@ First turn `--session-id <uuid>`, later turns `--resume <uuid>` → keeps contex
 - `GET /backgrounds` → `{backgrounds: [...]}` ; `GET /permission-sound` → mp3
 - `POST /chat {message}` → `{emotion, text, speech, permission, image}`
 
-### Frontend sync (important, user-requested)
-On submit: show "thinking" image + `...`; POST `/chat`; then `prepareSpeech()`
-**fully downloads/decodes** the WAV from `/speak` BEFORE revealing anything; once
-ready, **image + text + audio fire together** (in sync, no 1s lag). Muted/engine
--down/synth-fail → text+image appear instantly.
+### The box + reply flow (important, user-requested)
+There is **one box** (`js/editor.js`) that is both the input composer AND the
+surface Claude-chan types her reply into (the old separate chat bubble was
+merged in). On submit (`js/chat.js`): clear + **lock** the box (typing is
+disabled and it blurs — the user is kicked out), show a `...` think animation;
+POST `/chat`; `prepareSpeech()` decodes the WAV up front; then the reply is
+**typed in one character at a time** (`typeOut` in `js/util/animation.js`),
+markdown-formatted with the syntax markers hidden, **voice playing in sync**.
+When done the box unlocks but keeps the reply on screen until the next
+click/keypress clears it back to a fresh input. No voice → it just types silently.
 
 ---
 
@@ -116,13 +129,14 @@ re-download them on next start. They sit unused since the app uses Runa.
 - **Personality**: `personality.txt` (repo root) is read **live every turn** by
   `read_personality()` and appended to the system prompt. The user edits it
   freely to shape Claude-chan; blank = default behavior. No restart needed.
-- **Volume**: playback is fixed at 70% (`VOICE_VOLUME` in app.js). There is no
-  in-app volume control (the old dropdown/mute button were removed).
-- **Debug logs**: verbose `dlog()` output (gated by `DEBUG` in app.js) goes to
-  the browser console (F12).
+- **Volume**: master scale is `SOUND_SCALE` in `js/util/sound.js`; the voice's
+  own level is `VOICE_VOLUME` in `js/voice.js`. There is no in-app volume
+  control (the old dropdown/mute button were removed).
+- **Debug logs**: verbose `dlog()` output (gated by `DEBUG` in `js/log.js`) goes
+  to the browser console (F12) and the in-app terminal window.
 - **No browser caching**: the server sends `Cache-Control: no-store` so edits to
-  app.js/style.css/images appear on a plain reload (don't reintroduce caching,
-  or static edits will look "broken" / not apply).
+  `js/`, `style.css`, and images appear on a plain reload (don't reintroduce
+  caching, or static edits will look "broken" / not apply).
 
 ## Running, from scratch
 1. Start the engine: `~/.local/bin/aivisspeech-engine`

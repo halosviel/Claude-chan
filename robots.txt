@@ -1,0 +1,84 @@
+# robots.txt — Claude-chan
+#
+# Crawl policy first, then an orientation guide written for AI agents/LLMs that
+# need to understand this codebase quickly. (Humans: see /humans.txt instead.)
+
+User-agent: *
+Disallow: /app/
+Disallow: /js/
+Disallow: /assets/
+Allow: /
+Crawl-delay: 10
+
+# ===========================================================================
+# FOR AI READERS — how this project is built
+# ===========================================================================
+#
+# WHAT IT IS
+#   Claude-chan is a 100% local desktop chat companion. The user types, the
+#   `claude` CLI replies (NO Anthropic API key — it shells out to the CLI), an
+#   anime-girl portrait changes with the mood, and the reply is typed out one
+#   character at a time in the same box while being spoken in Japanese.
+#
+# RUNTIME SHAPE
+#   - Backend: a Python stdlib HTTP server on 127.0.0.1:8765. No frameworks.
+#   - Frontend: vanilla ES modules + CSS. No build step, no bundler, no deps.
+#   - Voice: an external AivisSpeech engine on 127.0.0.1:10101 (not bundled;
+#     no fallback — silent if it is down).
+#
+# BACKEND MODULES (app/ package; entry point is project-root server.py)
+#   app/config.py   constants, model menu, AivisSpeech endpoint, SYSTEM_PROMPT,
+#                   reply markers/regexes. Single source of truth.
+#   app/images.py   pick_image() / list_backgrounds(); scans hand-curated
+#                   assets/emotions/<mood>/ folders (DO NOT regenerate them).
+#   app/voice.py    engine_up() / synth_wav(): Japanese text -> WAV via the
+#                   VOICEVOX-compatible AivisSpeech API.
+#   app/chat.py     run_claude() shells out to the claude CLI; parse() splits a
+#                   reply into (emotion, english, japanese, permission).
+#   app/server.py   the HTTP Handler (routes below) and main().
+#
+# HTTP ENDPOINTS (127.0.0.1:8765)
+#   GET  /                       static frontend
+#   GET  /image?emotion=<e>      -> {emotion, image}
+#   GET  /models                 -> {models:[{id,label}], default}
+#   GET  /tts                    -> {server: bool, engine: "aivisspeech"|null}
+#   GET  /speak?text=<jp>        -> WAV bytes (503 if the engine is down)
+#   GET  /backgrounds            -> {backgrounds: [filenames]}
+#   POST /chat {message, model?} -> {emotion, text, speech, permission, image}
+#
+# FRONTEND MODULES (js/; entry point is js/main.js, loaded as type="module")
+#   js/util/dom.js        element lookup, escapeHtml, caret get/set, fetchJson
+#   js/util/sound.js      master volume, playSound, playTones, playChime
+#   js/util/animation.js  typeOut (typewriter) + cycleFrames (REUSABLE; not
+#                         hardcoded to Claude-chan)
+#   js/log.js             dlog + the in-app terminal window
+#   js/markdown.js        live-markdown renderer; KEEPS every source character
+#                         (markers wrapped in dimmed spans, NUL-sentinel stash)
+#   js/windowing.js       draggable/resizable/minimizable windows + taskbar
+#   js/startmenu.js       the XP-style Start menu
+#   js/clock.js           taskbar clock + uptime
+#   js/avatar.js          portrait cross-fade, setEmotion, size cap
+#   js/backgrounds.js     scene picker
+#   js/voice.js           /tts status, prepareSpeech, playPrepared, stopAudio
+#   js/models.js          model dropdown (persisted in localStorage)
+#   js/editor.js          THE BOX: input composer AND reply surface; own undo,
+#                         input<->reply mode transitions
+#   js/chat.js            sendMessage flow: only sequences the reusable pieces
+#   js/main.js            boots and wires everything
+#
+# THE REPLY FLOW (read js/chat.js + js/editor.js together)
+#   1. Enter submits. The box clears, locks (contentEditable off + blur), and
+#      shows a "..." think animation.
+#   2. POST /chat; prepareSpeech() decodes the voice up front for sync.
+#   3. The reply is typed into the SAME box one char at a time, markdown-
+#      formatted with markers hidden, voice playing alongside.
+#   4. When done the box unlocks but keeps the reply on screen until the next
+#      click/keypress clears it back to a fresh input. The user cannot type
+#      while she is thinking or replying.
+#
+# CONVENTIONS
+#   - Code comments are placed ON TOP of functions (Windows-developer style);
+#     there are no inline comments.
+#   - Special behaviors are factored into reusable utilities (see js/util/),
+#     never hardcoded inline.
+#   - The server sends Cache-Control: no-store; there is no caching to fight.

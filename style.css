@@ -9,12 +9,19 @@
   src: url("assets/fonts/Modeseven-L3n5.ttf") format("truetype");
   font-display: swap;
 }
+@font-face {
+  font-family: "DearSans";
+  src: url("assets/fonts/DearSans-Book.ttf") format("truetype");
+  font-display: swap;
+}
 
 :root {
   --bg: #fff3e0;           /* light warm cream */
   --panel: #fffaf2;        /* near-white panel fill */
   --orange: #e8893a;       /* box outlines + accents */
   --orange-soft: #f4b878;  /* hard pixel-shadow tint */
+  --primary: #e8893a;      /* set from config.js: topbars, taskbar, headers */
+  --secondary: #f4a85f;    /* set from config.js: selections + your messages */
   --text: #4a3a2a;
   --dot: rgba(232, 137, 58, .28);
   --taskbar-h: 38px;
@@ -58,6 +65,8 @@ body {
   text-shadow: 2px 2px 0 #fff, 4px 4px 0 var(--orange-soft);
   pointer-events: none;
 }
+/* while any window is fullscreened, hide the page title entirely */
+body.has-fullscreen .title { display: none; }
 
 /* desktop area (above the taskbar) where windows live */
 .desktop {
@@ -72,6 +81,7 @@ body {
 /* ---- retro windows (XP/NSO-ish) ---- */
 .window {
   position: relative;
+  z-index: 5;             /* always above the page title (which sits beneath all) */
   display: flex;
   flex-direction: column;
   width: 440px;
@@ -81,8 +91,8 @@ body {
   box-shadow: 4px 4px 0 var(--orange-soft);
 }
 
-/* Claude-chan app: wide landscape rectangle (shorter, longer) */
-#win-app { width: 680px; height: 420px; }
+/* Claude-chan app: visual-novel stage (side panels + centered portrait) */
+#win-app { width: 950px; height: 550px; }
 
 /* nerd-font icon glyphs */
 .nf {
@@ -113,7 +123,7 @@ body {
   justify-content: space-between;
   gap: 8px;
   padding: 4px 4px 4px 8px;
-  background: var(--orange);
+  background: var(--primary);
   color: #fff;
   font-family: var(--font-primary);
   font-weight: bold;
@@ -148,147 +158,262 @@ body {
 .app-body {
   flex: 1 1 auto;
   min-height: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px;
 }
 
-.portrait-row {
+/* ---- visual-novel stage: side panels flanking the centered portrait ---- */
+.vn-stage {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: stretch;
 }
+.vn-side {
+  flex: 0 0 178px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vn-panel {
+  background: var(--panel);
+  border: 2px solid var(--orange);
+  box-shadow: 3px 3px 0 var(--orange-soft);
+}
+.vn-panel-title {
+  background: var(--primary);
+  color: #fff;
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 3px 8px;
+  text-shadow: 1px 1px 0 rgba(120, 60, 20, .35);
+}
+/* the english gloss sitting next to the japanese label (hidden in Japanese mode,
+   where the Japanese label alone is enough) */
+.vn-panel-en {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: .8;
+  text-transform: lowercase;
+}
+body.lang-ja .vn-panel-en { display: none; }
 
+/* the language picker is compact (just its two entries) */
+.vn-language {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* date box (Japanese): month/day on top, time-of-day large below */
+.vn-date {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px;
+  font-family: var(--font-primary);
+  color: var(--text);
+}
+.vn-date .vn-ymd { font-size: 0.92rem; font-weight: 700; letter-spacing: 1px; }
+.vn-date .vn-tod {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--orange);
+}
+
+/* model + background panels: a title, then a scrolling list of picks */
+.vn-models,
+.vn-bg {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.pick-list li { margin: 0; }
+.pick-list button {
+  width: 100%;
+  display: block;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sub);
+  font-size: 0.82rem;
+  padding: 5px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pick-list button:hover { background: #ffe6cc; }
+.pick-list button.selected {
+  background: var(--secondary);
+  color: #fff;
+}
+.pick-list button.selected::before { content: "\25B6  "; }
+
+/* transcripts + help panels: a title and a single button, compact at the
+   bottom of their column */
+.vn-transcripts,
+.vn-help { flex: 0 0 auto; }
+.vn-transcripts-body { padding: 7px; }
+.transcript-btn {
+  width: 100%;
+  border: 2px solid var(--orange);
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 0.84rem;
+  padding: 5px 0;
+  cursor: pointer;
+}
+.transcript-btn:hover { background: #ffe0bf; }
+
+/* ---- centered portrait + the dialogue box overlapping its base ---- */
+.vn-center {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
 .portrait-body {
   flex: 1 1 0;
   min-width: 0;
   min-height: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-end;       /* anchor Claude-chan to the bottom of her frame */
   justify-content: center;
+  overflow: hidden;
   background: var(--panel);
   border: 2px solid var(--orange);
+  box-shadow: 3px 3px 0 var(--orange-soft);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
+/* the image scales with the frame but is capped here (not the frame) so
+   enlarging / fullscreening never blows her up or reveals an oversized box */
 .portrait-body img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;     /* fit the (size-capped) parent box */
+  width: 72%;
+  height: 95%;
+  object-fit: contain;
+  object-position: center bottom;
   transition: opacity .18s ease;
 }
 
-/* speech bubble sits beside the portrait inside the window */
-.bubble {
-  position: relative;
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: auto;
-  align-self: center;
-  max-height: 100%;
-  background: var(--panel);
-  border: 2px solid var(--orange);
-  box-shadow: 4px 4px 0 var(--orange-soft);
-  padding: 12px 14px;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  animation: pop .15s ease;
-}
-.bubble::before {
-  content: "";
+/* dialogue box: semi-transparent black w/ blur, overlapping the portrait base.
+   Anchored to the bottom so it grows upward as the reply gets longer. */
+.dialogue {
   position: absolute;
-  left: -12px;
-  top: 22px;
-  width: 0; height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 12px solid var(--orange);
+  left: 15px;
+  right: 15px;
+  bottom: 15px;
+  z-index: 2;
+  padding: 8px 13px 11px;
+  background: linear-gradient(to bottom, rgba(116, 98, 84, .34), rgba(28, 20, 14, .54));
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 5px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
 }
-.bubble::after {
-  content: "";
+/* "Press / to talk" hint, top-right of the dialogue box; shown after a reply */
+.dialogue-hint {
   position: absolute;
-  left: -9px;
-  top: 22px;
-  width: 0; height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 12px solid var(--panel);
+  top: 7px;
+  right: 13px;
+  font-family: "DearSans", var(--font-primary);
+  font-size: 0.66rem;
+  color: #ffe0bb;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, .7);
 }
-.bubble.hidden { display: none; }
+.dialogue-hint.visible { opacity: .85; }
 
-@keyframes pop {
-  from { transform: scale(.96); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
-}
-
-/* input area with its own little bar */
-.input-section { flex: 0 0 auto; }
-.subbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--orange);
-  color: #fff;
+/* the speaker name tag ("you" / "Claude-chan") above the text */
+.speaker {
+  display: inline-block;
+  margin-bottom: 3px;
+  font-family: "DearSans", var(--font-primary);
   font-weight: 700;
-  font-size: 0.78rem;
-  padding: 2px 8px;
-  text-shadow: 1px 1px 0 rgba(120, 60, 20, .35);
+  font-size: 0.92rem;
+  color: #ffd9a8;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, .7);
 }
-/* live character count, pushed to the right of the input subbar */
-.char-count {
-  margin-left: auto;
-  font-weight: 500;
-  font-size: 0.72rem;
-  white-space: nowrap;
-  opacity: .9;
-}
-/* model dropdown sits just right of the char count */
-.model-pick {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-#model-select {
-  font-family: var(--font-sub);
-  font-size: 0.72rem;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid #fff;
-  padding: 1px 4px;
-  cursor: pointer;
-  outline: none;
-}
-/* markdown composer (contenteditable): grows to ~3 lines, then scrolls */
+/* markdown composer/reply surface: transparent over the dark dialogue box, with
+   light text. Grows to ~3 lines while typing, then scrolls. */
 .md-editor {
   width: 100%;
-  margin-top: 6px;
-  min-height: calc(1.5em + 18px);
-  max-height: calc(4.5em + 18px);   /* ~3 lines + padding before scrolling */
+  min-height: 1.5em;
+  max-height: calc(4.5em + 4px);
   overflow-y: auto;
-  padding: 9px 11px;
+  padding: 1px 0;
   font-size: 0.95rem;
-  font-family: var(--font-sub);
+  font-family: "DearSans", var(--font-sub);
   font-weight: 500;
   line-height: 1.5;
-  border: 2px solid var(--orange);
-  background: #fff;
-  color: var(--text);
+  border: none;
+  background: transparent;
+  color: #fdf3e7;
   outline: none;
   white-space: pre-wrap;
   word-break: break-word;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, .7);
 }
 .md-editor:empty::before {
   content: attr(data-placeholder);
-  color: #c0936a;
+  color: rgba(255, 240, 220, .5);
   pointer-events: none;
 }
-.md-editor.disabled { opacity: .6; pointer-events: none; }
+
+/* Response mode: the same box shows Claude-chan's reply (typed in one char at a
+   time). It keeps the same ~3-line cap as input (then scrolls), and the markdown
+   syntax markers are hidden so only the formatting shows. */
+.md-editor.response {
+  caret-color: transparent;
+  cursor: default;
+}
+.md-editor.response .md-mark,
+.md-editor.response .md-tick,
+.md-editor.response .md-fence { display: none; }
+/* blinking cursor that trails the typed-out text */
+.md-editor.response .type-caret {
+  display: inline-block;
+  width: 0.5em;
+  margin-left: 1px;
+  border-bottom: 0.18em solid #ffd9a8;
+  transform: translateY(-0.05em);
+  animation: type-blink .7s steps(1) infinite;
+}
+@keyframes type-blink { 50% { opacity: 0; } }
 
 /* live markdown styling inside the composer (the syntax markers stay, dimmed) */
 .md-mark { opacity: .4; }
-/* finished code-fence markers are kept in the text (for the caret) but hidden */
+/* the ``` fence lines stay in the text model (so they can be edited/deleted) but
+   are not drawn — the code block reads as empty until you type code into it. The
+   caret never lands inside them (setCaretOffset snaps past hidden runs). */
 .md-fence { display: none; }
 /* the pixel input font draws "`" like a dash; backticks use a real monospace */
 .md-tick, .md-code-inline {
@@ -299,23 +424,33 @@ body {
 .md-h1 { font-size: 1.45em; font-weight: 800; line-height: 1.25; }
 .md-h2 { font-size: 1.25em; font-weight: 800; line-height: 1.3; }
 .md-h3 { font-size: 1.08em; font-weight: 800; }
+/* inline `code`: a subtle translucent chip over the dark dialogue (not a bright
+   cream block) */
 .md-code-inline {
-  background: #f1e2cf;
-  border: 1px solid #e7cba6;
+  background: rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 255, 255, .16);
   border-radius: 3px;
   padding: 0 3px;
+  color: #ffd9a8;
 }
 .md-code {
   display: block;
   position: relative;
   margin: 2px 0;
   padding: 9px 8px 6px;
-  font-family: "Modeseven", monospace;
-  font-size: 0.9em;
-  line-height: 1.4;
-  background: #2a1a10;
-  color: #ffcf8a;
+  font-family: "JetBrainsMono Nerd Font", "FiraCode Nerd Font", ui-monospace, monospace;
+  font-size: 0.88em;
+  line-height: 1.45;
+  background: rgba(140, 112, 90, .28);
+  color: #ffe7c4;
   border-radius: 4px;
+}
+/* the code body is the only visible part (fences are hidden); make it a block
+   with a full line of height so an empty/just-opened block is one line tall and
+   each new line grows it by exactly one line (no half-height lag) */
+.md-codebody {
+  display: block;
+  min-height: 1.45em;
 }
 .md-code::before {
   content: attr(data-lang);
@@ -327,6 +462,11 @@ body {
   text-transform: uppercase;
   color: #e8893a;
 }
+/* syntax-highlight token colours (over the dark code background) */
+.tok-keyword { color: #ff9d5c; font-weight: 700; }
+.tok-string { color: #c3e88d; }
+.tok-number { color: #f7a86c; }
+.tok-comment { color: #9b8567; font-style: italic; }
 
 .voice-note {
   margin: 6px 0 0;
@@ -351,6 +491,7 @@ body {
 }
 
 /* ---- terminal app ---- */
+#win-terminal { width: 350px; height: 550px; }
 .term-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -370,33 +511,6 @@ body {
 }
 .term-log div { padding: 1px 0; }
 
-/* the scene the background selector sets sits behind the (transparent) avatar */
-.portrait-body {
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-}
-
-/* ---- background selector app (square, scrolls if it overflows) ---- */
-#win-bg { width: 320px; height: 320px; }
-.bg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; }
-.bg-heading {
-  margin: 0 0 10px;
-  font-family: var(--font-primary);
-  font-weight: bold;
-  font-size: 1.1rem;
-  color: var(--orange);
-}
-.bg-list { list-style: none; margin: 0; padding: 0; }
-.bg-list li { margin: 3px 0; }
-.bg-list a {
-  color: #c25a1a;
-  text-decoration: underline;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-.bg-list a:hover { color: var(--orange); background: #ffe6cc; }
-
 /* ---- taskbar (always above everything, even fullscreen windows) ---- */
 .taskbar {
   position: fixed;
@@ -407,7 +521,7 @@ body {
   align-items: center;
   gap: 6px;
   padding: 0 6px;
-  background: var(--orange);
+  background: var(--primary);
   border-top: 2px solid #fff;
   box-shadow: 0 -2px 0 var(--orange-soft);
 }
@@ -512,7 +626,7 @@ body {
 .start-item .ico { color: var(--orange); width: 1.2em; text-align: center; }
 
 /* ---- memory viewer window ---- */
-#win-memory { width: 360px; height: 360px; }
+#win-memory { width: 750px; height: 400px; }
 .memory-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; }
 .memory-heading {
   margin: 0 0 10px;
@@ -521,7 +635,171 @@ body {
   font-size: 1.1rem;
   color: var(--orange);
 }
-.memory-empty { margin: 0; font-size: 0.85rem; line-height: 1.6; color: #b07a3a; }
+.memory-intro { margin: 0 0 10px; font-size: 0.85rem; line-height: 1.6; color: #b07a3a; }
+.memory-list {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+.memory-list p { margin: 0 0 11px; }
+
+/* ---- settings popup ---- */
+#win-settings { width: 360px; height: auto; }
+.settings-body { flex: 0 0 auto; padding: 14px 16px; overflow-y: auto; max-height: 70vh; }
+.settings-row { margin-bottom: 14px; }
+.settings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+.settings-value { font-weight: 500; font-size: 0.76rem; color: #b07a3a; }
+.settings-slider {
+  width: 100%;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.voice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 4px 2px;
+  border: 1px solid var(--orange-soft);
+  border-radius: 3px;
+}
+.voice-option {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.voice-option:hover { background: #ffe6cc; }
+.voice-option input { accent-color: var(--primary); cursor: pointer; }
+
+/* ---- help popup ---- */
+#win-help { width: 340px; height: auto; }
+.help-body { flex: 0 0 auto; padding: 14px 16px; }
+.help-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.92rem;
+  line-height: 1.9;
+  color: var(--text);
+}
+.help-list kbd {
+  display: inline-block;
+  min-width: 1.3em;
+  text-align: center;
+  padding: 1px 5px;
+  border: 1px solid var(--orange);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #fff;
+  font-family: var(--font-sub);
+  font-size: 0.85em;
+  color: #c25a1a;
+}
+
+/* ---- transcript popup (messaging-app style) ---- */
+#win-transcript { width: 350px; height: 550px; }
+.transcript-body { flex: 1 1 auto; min-height: 0; padding: 0; }
+.transcript-log {
+  height: 100%;
+  overflow-y: auto;
+  padding: 14px 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background:
+    radial-gradient(var(--dot) 1.4px, transparent 1.5px) 0 0 / 18px 18px,
+    var(--panel);
+}
+/* centered, fully-rounded "Session started" pill at the very top */
+.transcript-start {
+  align-self: center;
+  margin-bottom: 4px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #f1e2cf;
+  color: var(--text);
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 0.76rem;
+}
+.transcript-start .t-time { color: #a89177; font-weight: 500; }
+/* one message: a label above a bubble; left for you, right for Claude-chan */
+.msg {
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.msg-you { align-self: flex-end; align-items: flex-end; }
+.msg-claude { align-self: flex-start; align-items: flex-start; }
+.msg-label {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  font-size: 0.7rem;
+  opacity: .65;
+  padding: 0 4px;
+}
+.msg-bubble {
+  padding: 8px 11px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 13px;
+}
+.msg-you .msg-bubble {
+  background: var(--secondary);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.msg-claude .msg-bubble {
+  background: #fff;
+  border: 1px solid var(--orange-soft);
+  border-bottom-left-radius: 3px;
+}
+/* a relative timestamp that fades in while the message is hovered */
+.msg-time {
+  font-size: 0.66rem;
+  color: #a89177;
+  padding: 1px 5px 0;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.msg:hover .msg-time { opacity: 1; }
+/* markdown rendered inside transcript bubbles: hide raw markers and theme the
+   code/highlight to the light transcript window (instead of the dark dialogue) */
+.transcript-log .md-mark,
+.transcript-log .md-tick,
+.transcript-log .md-fence { display: none; }
+.transcript-log .md-code {
+  background: #efe0cc;
+  color: #5a4632;
+  border: 1px solid #e3c9a4;
+}
+.transcript-log .md-code::before { color: #b5701f; }
+.transcript-log .tok-keyword { color: #c25a1a; }
+.transcript-log .tok-string { color: #5f8a3a; }
+.transcript-log .tok-number { color: #b5701f; }
+.transcript-log .tok-comment { color: #a08a6a; }
+.transcript-log .md-code-inline {
+  background: rgba(120, 60, 20, .12);
+  border: 1px solid rgba(120, 60, 20, .2);
+  color: inherit;
+}
+.transcript-log .msg-bubble p { margin: 0; }
 
 /* ---- shutdown screen (after Power off) ---- */
 .shutdown-screen {

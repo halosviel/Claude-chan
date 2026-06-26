@@ -1,0 +1,63 @@
+                    /\___/\
+                   ( =^.^= )   Claude-chan
+                    )     (    a tiny local desktop companion
+                   (       )
+                    \_____/
+
+/* TEAM */
+    Maker & curator: halosviel
+    Companion brain: the `claude` CLI (no API key)
+    Voice: AivisSpeech (local engine)
+
+/* WHAT THIS IS (the human version) */
+
+    Claude-chan is a fully vibe coded virtual "desktop" that runs natively on your
+    own machine. You type to her, and she responds in the same little box, an anime girl portrait shows her mood, and she speaks her reply out loud in Japanese. Nothing leaves your computer: there is no API key, no account, no cloud — just the `claude` command-line tool answering locally and a local voice engine doing the talking.
+
+/* HOW TO RUN IT */
+
+    1. Start the voice engine (optional — she just stays silent without it):
+         ~/.local/bin/aivisspeech-engine
+    2. Start the app:
+         python3 server.py      (or press F5 in VS Code)
+    3. Open http://localhost:8765 in your browser.
+
+    The `claude` CLI must be installed and logged in — that is what powers the
+    conversation. No Anthropic API key is used or needed.
+
+/* HOW IT FITS TOGETHER (no coding required to follow) */
+
+    There are two halves.
+
+    The SERVER (the app/ folder, started by server.py) is a small Python
+    program. It hands your browser the page, picks a portrait that matches her
+    mood, asks the `claude` tool for a reply, and turns the Japanese line of
+    that reply into audio through the voice engine. Each part lives in its own
+    file: settings, pictures, voice, the chat itself, and the web plumbing.
+
+    The PAGE (the js/ folder) is what you see and click. It is built from small
+    plain-JavaScript pieces — one for the winnewdows you can drag around, one for
+    the clock, one for the box you type in, one for her voice, and so on. The
+    clever bits (typing the reply out letter by letter, the little chime, the
+    "thinking" dots) are written as reusable helpers in js/util/ rather than
+    being buried inside one big file.
+
+    The one box on screen is special: it is BOTH where you type AND where her
+    answer appears. Press Enter and your text is replaced by her reply as it
+    types itself in. You can't type while she is thinking or answering; once she
+    finishes, click or press a key and the box is yours again.
+
+/* THINGS THAT ARE INTENTIONAL (not bugs) */
+
+    - Some mood folders under assets/emotions/ are empty on purpose; she falls
+      back to a "thinking" picture. These folders are curated by hand — please
+      don't auto-fill or overwrite them.
+    - If the voice engine isn't running she simply stays silent. That's by
+      design; there is no backup voice.
+
+/* TECH, BRIEFLY */
+
+    Python standard library (server) · vanilla ES modules + CSS (page) ·
+    no build step · no third-party dependencies · runs offline.
+
+                            made with care 𖹭

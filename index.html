@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sacramento&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="author" href="humans.txt">
 </head>
 <body>
   <header class="title">Claude-chan</header>
@@ -20,31 +21,57 @@
         <span class="win-title"><span class="ico nf">󰋑</span> Claude-chan</span>
         <span class="win-buttons">
           <button class="win-min" type="button" title="minimize">_</button>
-          <button class="win-max" type="button" title="fullscreen">□</button>
+          <button class="win-max" type="button" title="fullscreen">▣</button>
           <button class="win-close" type="button" title="close">✕</button>
         </span>
       </div>
 
       <div class="win-body app-body">
-        <div class="portrait-row">
-          <div class="portrait-body">
-            <img id="avatar" src="assets/emotions/happy/happy-1.png" alt="Claude-chan">
-          </div>
-          <div id="bubble" class="bubble hidden"></div>
-        </div>
+        <div class="vn-stage">
+          <aside class="vn-side vn-left">
+            <div class="vn-panel vn-date" id="vn-date"></div>
+            <div class="vn-panel vn-models">
+              <div class="vn-panel-title">モデル <span class="vn-panel-en">models</span></div>
+              <ul class="pick-list" id="model-list"></ul>
+            </div>
+            <div class="vn-panel vn-language">
+              <div class="vn-panel-title">言語 <span class="vn-panel-en">language</span></div>
+              <ul class="pick-list" id="language-list"></ul>
+            </div>
+            <div class="vn-panel vn-help">
+              <div class="vn-panel-title">ヘルプ <span class="vn-panel-en">help</span></div>
+              <div class="vn-transcripts-body">
+                <button class="transcript-btn" id="help-view" type="button" data-i18n="btn.open">Open</button>
+              </div>
+            </div>
+          </aside>
 
-        <div class="input-section">
-          <div class="subbar">
-            <span class="subbar-label"><span class="ico nf">󰭻</span> input</span>
-            <span class="char-count" id="char-count">0 characters</span>
-            <label class="model-pick">
-              <select id="model-select" title="chat model"></select>
-            </label>
+          <div class="vn-center">
+            <div class="portrait-body">
+              <img id="avatar" src="assets/emotions/happy/happy-1.png" alt="Claude-chan">
+            </div>
+            <div class="dialogue" id="dialogue">
+              <span class="speaker" id="subbar-name">you</span>
+              <span class="dialogue-hint" id="dialogue-hint" data-i18n="hint.talk">Press "/" to talk</span>
+              <div id="editor" class="md-editor" contenteditable="true" role="textbox"
+                   aria-multiline="true" data-placeholder="say something..."></div>
+            </div>
           </div>
-          <div id="editor" class="md-editor" contenteditable="true" role="textbox"
-               aria-multiline="true" data-placeholder="say something..."></div>
-          <p id="voice-note" class="voice-note hidden"></p>
+
+          <aside class="vn-side vn-right">
+            <div class="vn-panel vn-bg">
+              <div class="vn-panel-title">背景 <span class="vn-panel-en">backgrounds</span></div>
+              <ul class="pick-list" id="bg-list"></ul>
+            </div>
+            <div class="vn-panel vn-transcripts">
+              <div class="vn-panel-title">記録 <span class="vn-panel-en">backlog</span></div>
+              <div class="vn-transcripts-body">
+                <button class="transcript-btn" id="transcript-view" type="button" data-i18n="btn.view">View</button>
+              </div>
+            </div>
+          </aside>
         </div>
+        <p id="voice-note" class="voice-note hidden"></p>
       </div>
 
       <span class="rh rh-nw"></span>
@@ -56,10 +83,10 @@
     <!-- Terminal app (shows the debug logs); starts minimized -->
     <div class="window terminal-window" id="win-terminal" data-task="task-terminal" style="display:none">
       <div class="titlebar">
-        <span class="win-title"><span class="ico nf"></span> terminal</span>
+        <span class="win-title"><span class="ico nf"></span> <span data-i18n="win.terminal">terminal</span></span>
         <span class="win-buttons">
           <button class="win-min" type="button" title="minimize">_</button>
-          <button class="win-max" type="button" title="fullscreen">□</button>
+          <button class="win-max" type="button" title="fullscreen">▣</button>
           <button class="win-close" type="button" title="close">✕</button>
         </span>
       </div>
@@ -72,19 +99,20 @@
       <span class="rh rh-se"></span>
     </div>
 
-    <!-- Background selector app; starts minimized -->
-    <div class="window bg-window" id="win-bg" data-task="task-bg" style="display:none">
+    <!-- Memory viewer; opened from the Start menu (content TBD) -->
+    <div class="window memory-window" id="win-memory" data-task="task-memory" style="display:none">
       <div class="titlebar">
-        <span class="win-title"><span class="ico nf"></span> Select background</span>
+        <span class="win-title"><span class="ico nf">󰍛</span> <span data-i18n="win.memory">Memory</span></span>
         <span class="win-buttons">
           <button class="win-min" type="button" title="minimize">_</button>
-          <button class="win-max" type="button" title="fullscreen">□</button>
+          <button class="win-max" type="button" title="fullscreen">▣</button>
           <button class="win-close" type="button" title="close">✕</button>
         </span>
       </div>
-      <div class="win-body bg-body">
-        <h2 class="bg-heading">Select background</h2>
-        <ul class="bg-list" id="bg-list"></ul>
+      <div class="win-body memory-body">
+        <h2 class="memory-heading" data-i18n="memory.heading">Memory</h2>
+        <p class="memory-intro" data-i18n="memory.intro">Claude-chan's memories live here.<br>If you want to alter Claude-chan's memories, simply tell her!</p>
+        <div class="memory-list" id="memory-list"></div>
       </div>
       <span class="rh rh-nw"></span>
       <span class="rh rh-ne"></span>
@@ -92,19 +120,57 @@
       <span class="rh rh-se"></span>
     </div>
 
-    <!-- Memory viewer; opened from the Start menu (content TBD) -->
-    <div class="window memory-window" id="win-memory" data-task="task-memory" style="display:none">
+    <!-- Settings popup (opened from the Start menu) -->
+    <div class="window settings-window" id="win-settings" style="display:none">
       <div class="titlebar">
-        <span class="win-title"><span class="ico nf">󰍛</span> Memory</span>
+        <span class="win-title"><span class="ico">⚙</span> <span data-i18n="win.settings">Settings</span></span>
         <span class="win-buttons">
           <button class="win-min" type="button" title="minimize">_</button>
-          <button class="win-max" type="button" title="fullscreen">□</button>
+          <button class="win-max" type="button" title="fullscreen">▣</button>
           <button class="win-close" type="button" title="close">✕</button>
         </span>
       </div>
-      <div class="win-body memory-body">
-        <h2 class="memory-heading">Memory</h2>
-        <p class="memory-empty">Claude-chan's memories will live here.<br>(Nothing saved yet — coming soon.)</p>
+      <div class="win-body settings-body" id="settings-body"></div>
+      <span class="rh rh-nw"></span>
+      <span class="rh rh-ne"></span>
+      <span class="rh rh-sw"></span>
+      <span class="rh rh-se"></span>
+    </div>
+
+    <!-- Help popup (opened by the Help "Open" button) -->
+    <div class="window help-window" id="win-help" style="display:none">
+      <div class="titlebar">
+        <span class="win-title" data-i18n="win.help">Help</span>
+        <span class="win-buttons">
+          <button class="win-min" type="button" title="minimize">_</button>
+          <button class="win-max" type="button" title="fullscreen">▣</button>
+          <button class="win-close" type="button" title="close">✕</button>
+        </span>
+      </div>
+      <div class="win-body help-body">
+        <ul class="help-list">
+          <li><span data-i18n="help.chat">Press <kbd>/</kbd> to chat with Claude-chan</span></li>
+          <li><span data-i18n="help.cancel">Press <kbd>Esc</kbd> to cancel prompt</span></li>
+        </ul>
+      </div>
+      <span class="rh rh-nw"></span>
+      <span class="rh rh-ne"></span>
+      <span class="rh rh-sw"></span>
+      <span class="rh rh-se"></span>
+    </div>
+
+    <!-- Transcript popup (opened by the Transcripts "View" button) -->
+    <div class="window transcript-window" id="win-transcript" style="display:none">
+      <div class="titlebar">
+        <span class="win-title" data-i18n="win.transcript">Transcript</span>
+        <span class="win-buttons">
+          <button class="win-min" type="button" title="minimize">_</button>
+          <button class="win-max" type="button" title="fullscreen">▣</button>
+          <button class="win-close" type="button" title="close">✕</button>
+        </span>
+      </div>
+      <div class="win-body transcript-body">
+        <div class="transcript-log" id="transcript-log"></div>
       </div>
       <span class="rh rh-nw"></span>
       <span class="rh rh-ne"></span>
@@ -115,15 +181,12 @@
 
   <!-- Windows-XP-like taskbar -->
   <div class="taskbar">
-    <button class="start-btn" id="start-btn" type="button"><span class="ico nf">󰨡</span> start</button>
+    <button class="start-btn" id="start-btn" type="button"><span class="ico nf">󰨡</span> <span data-i18n="btn.start">start</span></button>
     <button class="task-app active" id="task-claude" data-window="win-app" type="button">
       <span class="ico nf">󰋑</span> Claude-chan
     </button>
     <button class="task-app" id="task-terminal" data-window="win-terminal" type="button">
-      <span class="ico nf"></span> terminal
-    </button>
-    <button class="task-app" id="task-bg" data-window="win-bg" type="button">
-      <span class="ico nf"></span> background
+      <span class="ico nf"></span> <span data-i18n="win.terminal">terminal</span>
     </button>
     <span class="uptime" id="uptime"></span>
     <span class="clock" id="clock"></span>
@@ -133,7 +196,8 @@
   <div class="start-menu" id="start-menu" style="display:none">
     <div class="start-menu-header"><span class="ico nf">󰋑</span> Claude-chan</div>
     <ul class="start-menu-list">
-      <li><button class="start-item" id="start-memory" type="button"><span class="ico nf">󰍛</span> Memory</button></li>
+      <li><button class="start-item" id="start-settings" type="button"><span class="ico">⚙</span> <span data-i18n="win.settings">Settings</span></button></li>
+      <li><button class="start-item" id="start-memory" type="button"><span class="ico nf">󰍛</span> <span data-i18n="win.memory">Memory</span></button></li>
     </ul>
     <div class="start-menu-footer">
       <button class="start-item" id="start-restart" type="button"><span class="ico nf"></span> Restart</button>
@@ -143,28 +207,28 @@
 
   <!-- shown after Power off -->
   <div class="shutdown-screen" id="shutdown-screen" style="display:none">
-    <p>It's now safe to turn off Claude-chan.</p>
+    <p data-i18n="shutdown">It's now safe to turn off Claude-chan.</p>
   </div>
 
   <!-- permission prompt: a real draggable window (min/close = reject) -->
   <div class="window perm-window" id="perm-window" style="display:none">
     <div class="titlebar">
-      <span class="win-title"><span class="ico">❓</span> Permission needed</span>
+      <span class="win-title"><span class="ico">❓</span> <span data-i18n="win.permission">Permission needed</span></span>
       <span class="win-buttons">
         <button class="win-min" type="button" title="minimize (reject)">_</button>
-        <button class="win-max" type="button" title="fullscreen">□</button>
+        <button class="win-max" type="button" title="fullscreen">▣</button>
         <button class="win-close" type="button" title="close (reject)">✕</button>
       </span>
     </div>
     <div class="win-body perm-body">
       <p id="perm-text"></p>
       <div class="perm-buttons">
-        <button id="perm-yes" type="button">Yes</button>
-        <button id="perm-no" type="button">No</button>
+        <button id="perm-yes" type="button" data-i18n="perm.yes">Yes</button>
+        <button id="perm-no" type="button" data-i18n="perm.no">No</button>
       </div>
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

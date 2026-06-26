@@ -1,0 +1,61 @@
+// ===========================================================================
+//  main.js
+//
+//  Entry point. Imports every feature module and starts it in order, then wires
+//  the editor's submit to the chat flow and shows an opening picture. This is
+//  the only script the page loads (as a module); everything else is reached
+//  through its imports.
+// ===========================================================================
+
+import { PRIMARY_COLOR, SECONDARY_COLOR } from "./config.js";
+import { initTerminal } from "./log.js";
+import { initServerLog } from "./serverlog.js";
+import { initI18n } from "./i18n.js";
+import { initWindowing } from "./windowing.js";
+import { initStartMenu } from "./startmenu.js";
+import { initClock } from "./clock.js";
+import { initDateBox } from "./datebox.js";
+import { initModels } from "./models.js";
+import { initVoice } from "./voice.js";
+import { initBackgrounds } from "./backgrounds.js";
+import { setEmotion } from "./avatar.js";
+import { initPermission } from "./permission.js";
+import { initEditor } from "./editor.js";
+import { initTranscript } from "./transcript.js";
+import { initHelp } from "./help.js";
+import { initMemory } from "./memory.js";
+import { initSettings } from "./settings-ui.js";
+import { initInputGate } from "./inputgate.js";
+import { sendMessage } from "./chat.js";
+
+//
+// Boot the app: start every subsystem, connect the input box to the chat flow,
+// and pick a cheerful opening portrait.
+//
+function main() {
+  const root = document.documentElement.style;
+
+  root.setProperty("--primary", PRIMARY_COLOR);
+  root.setProperty("--secondary", SECONDARY_COLOR);
+
+  initTerminal();
+  initServerLog();
+  initI18n();
+  initWindowing();
+  initStartMenu();
+  initClock();
+  initDateBox();
+  initModels();
+  initVoice();
+  initBackgrounds();
+  initPermission();
+  initEditor({ onSubmit: sendMessage });
+  initTranscript();
+  initHelp();
+  initMemory();
+  initSettings();
+  initInputGate();
+  setEmotion("happy");
+}
+
+main();
