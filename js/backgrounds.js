@@ -15,6 +15,9 @@ const BG_KEY = "claudechan.background";
 // The scene shown when nothing has been chosen yet.
 const DEFAULT_BG = "_blank.png";
 
+// Preloaded Image objects (kept referenced) so switching scenes never flickers.
+const preloaded = [];
+
 //
 // Persist the chosen background so it can be restored on the next startup.
 //
@@ -95,6 +98,12 @@ export async function initBackgrounds() {
 
       item.appendChild(button);
       list.appendChild(item);
+
+      // preload the image so the first switch to it has no white flicker
+      const img = new Image();
+
+      img.src = "assets/backgrounds/" + encodeURI(file);
+      preloaded.push(img);
     });
 
     dlog("backgrounds loaded:", files.length);

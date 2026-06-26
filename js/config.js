@@ -11,26 +11,26 @@
 // percentage of the file's ORIGINAL volume: 100 = full/original, 0 = silent.
 // (This does NOT affect Claude-chan's spoken voice.)
 export const SOUND_VOLUMES = {
-  "app-open": 15,
-  "app-close": 25,
-  "app-minimize": 15,
-  "app-fullscreen": 15,
-  "ask-permission": 15,
-  "click": 15,
-  "message-sent": 15,
-  "type": 15,
+  "app-open": 100,
+  "app-close": 100,
+  "app-minimize": 100,
+  "app-fullscreen": 100,
+  "ask-permission": 100,
+  "click": 100,
+  "message-sent": 100,
+  "type": 100,
 };
 
 // Volume (same 0-100 scale) used for any sound not listed above, plus the
 // synthesized background-select chime (which isn't a file in assets/sounds/).
-export const DEFAULT_SOUND_VOLUME = 15;
+export const DEFAULT_SOUND_VOLUME = 100;
 
 // --- Theme colors ---------------------------------------------------------
 // PRIMARY is used for window title bars, the taskbar, and the section headers
 // in the Claude-chan app. SECONDARY (a lighter orange) is used for selected
 // list items (background / model / language) and your transcript messages.
 export const PRIMARY_COLOR = "#e8893a";
-export const SECONDARY_COLOR = "#f4a85f";
+export const SECONDARY_COLOR = "#f18d8d";
 
 // --- Dialogue typing speed ------------------------------------------------
 // Milliseconds between characters as Claude-chan types out her reply in the

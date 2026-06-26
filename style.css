@@ -332,7 +332,7 @@ body.lang-ja .vn-panel-en { display: none; }
   max-width: 690px;           /* ...but cap it ~30% over its default width */
   z-index: 2;
   padding: 8px 13px 11px;
-  background: linear-gradient(to bottom, rgba(116, 98, 84, .34), rgba(28, 20, 14, .54));
+  background: linear-gradient(to bottom, rgba(72, 60, 49, .46), rgba(28, 20, 14, .56));
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   border: 1px solid rgba(255, 255, 255, .18);
@@ -360,19 +360,19 @@ body.lang-ja .vn-panel-en { display: none; }
   margin-bottom: 3px;
   font-family: "DearSans", var(--font-primary);
   font-weight: 700;
-  font-size: 0.92rem;
+  font-size: 1.02rem;
   color: #ffd9a8;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, .7);
 }
 /* markdown composer/reply surface: transparent over the dark dialogue box, with
-   light text. Grows to ~3 lines while typing, then scrolls. */
+   light text. Grows to ~4 lines while typing, then scrolls. */
 .md-editor {
   width: 100%;
   min-height: 1.5em;
-  max-height: calc(4.5em + 4px);
+  max-height: calc(6em + 4px);
   overflow-y: auto;
   padding: 1px 0;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-family: "DearSans", var(--font-sub);
   font-weight: 500;
   line-height: 1.5;

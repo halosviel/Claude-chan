@@ -29,10 +29,17 @@ export function typeOut(element, text, options = {}) {
   let timer = null;
 
   const draw = () => {
+    // Stick to the bottom only while the reader is already at the bottom, so
+    // scrolling up to re-read pauses the auto-scroll; scrolling back down
+    // re-locks it (new lines keep pinning to the bottom).
+    const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight <= 6;
     const visible = characters.slice(0, index).join("");
 
     element.innerHTML = render(visible, index >= characters.length);
-    element.scrollTop = element.scrollHeight;
+
+    if (atBottom) {
+      element.scrollTop = element.scrollHeight;
+    }
   };
 
   const cancel = () => {
