@@ -83,6 +83,8 @@ VOICE_STYLE_ROMAJI = {
 }
 # Installed voices (engine speaker names) to hide from the picker as male.
 MALE_VOICES = {"阿井田 茂", "fumifumi"}
+# Other installed voices to hide from the picker (any reason).
+HIDDEN_VOICES = {"にせ", "morioki"}
 
 # Moods Claude-chan can express (must match assets/emotions/<name>/ folders),
 # and the image extensions the asset listings accept.

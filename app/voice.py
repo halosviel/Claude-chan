@@ -35,8 +35,8 @@ def list_voices():
     for speaker in speakers:
         name = speaker.get("name", "voice")
 
-        # hide male voices
-        if name in config.MALE_VOICES:
+        # hide male and otherwise-excluded voices
+        if name in config.MALE_VOICES or name in config.HIDDEN_VOICES:
             continue
 
         styles = speaker.get("styles", [])
