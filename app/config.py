@@ -60,6 +60,30 @@ CLAUDE_CWD = os.environ.get("CLAUDE_CWD", ROOT)
 AIVIS_URL = os.environ.get("AIVIS_URL", "http://127.0.0.1:10101")
 AIVIS_SPEAKER = int(os.environ.get("AIVIS_SPEAKER", "345585728"))
 
+# Romanised display names for the voice picker (engine names are Japanese).
+# Unlisted voices/styles keep their original name.
+VOICE_NAME_ROMAJI = {
+    "まお": "Mao",
+    "コハク": "Kohaku",
+    "るな": "Runa",
+    "にせ": "Nise",
+    "まい": "Mai",
+    "morioki": "Morioki",
+    "凛音エル": "Rinne Eru",
+    "花音": "Kanon",
+}
+VOICE_STYLE_ROMAJI = {
+    "ノーマル": "",
+    "ふつー": "Normal",
+    "あまあま": "Sweet",
+    "おちつき": "Calm",
+    "からかい": "Teasing",
+    "せつなめ": "Wistful",
+    "ねむたい": "Sleepy",
+}
+# Installed voices (engine speaker names) to hide from the picker as male.
+MALE_VOICES = {"阿井田 茂", "fumifumi"}
+
 # Moods Claude-chan can express (must match assets/emotions/<name>/ folders),
 # and the image extensions the asset listings accept.
 EMOTIONS = {"happy", "talking", "thinking", "angry", "sad", "laughing", "embarrassed"}

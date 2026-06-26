@@ -35,9 +35,22 @@ def list_voices():
     for speaker in speakers:
         name = speaker.get("name", "voice")
 
+        # hide male voices
+        if name in config.MALE_VOICES:
+            continue
+
+        # romanise the speaker name (fall back to the original)
+        display = config.VOICE_NAME_ROMAJI.get(name, name)
+
         for style in speaker.get("styles", []):
             style_name = style.get("name", "")
-            label = name if not style_name or style_name == "ノーマル" else "%s (%s)" % (name, style_name)
+            style_label = config.VOICE_STYLE_ROMAJI.get(style_name, style_name)
+
+            if not style_label or style_name == "ノーマル":
+                label = display
+            else:
+                label = "%s (%s)" % (display, style_label)
+
             voices.append({"id": style.get("id"), "name": label})
 
     return voices
