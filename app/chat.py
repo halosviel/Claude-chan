@@ -95,10 +95,10 @@ def run_claude(prompt, model=None):
                               cwd=config.CLAUDE_CWD, timeout=180)
     except subprocess.TimeoutExpired:
         logbuf.add("chat: claude TIMED OUT after 180s")
-        return "thinking", "sorry, i got stuck thinking for too long there...", "", "", None
+        return "thinking", [{"text": "sorry, i got stuck thinking for too long there...", "speech": ""}], "", None
     except FileNotFoundError:
         logbuf.add("chat: claude CLI not found on PATH")
-        return "sad", "i can't find the claude CLI -- is it installed and on your PATH?", "", "", None
+        return "sad", [{"text": "i can't find the claude CLI -- is it installed and on your PATH?", "speech": ""}], "", None
 
     _state["started"] = True
     elapsed = int((time.monotonic() - started) * 1000)
@@ -106,7 +106,7 @@ def run_claude(prompt, model=None):
     if proc.returncode != 0:
         err = (proc.stderr or proc.stdout or "").strip()[-400:]
         logbuf.add("chat: claude FAILED (exit %d, %dms): %s" % (proc.returncode, elapsed, err))
-        return "thinking", "hmm, something went sideways on my end...\n" + err, "", "", None
+        return "thinking", [{"text": "hmm, something went sideways on my end...\n" + err, "speech": ""}], "", None
 
     text = proc.stdout.strip()
     turns = None
@@ -125,11 +125,10 @@ def run_claude(prompt, model=None):
     return parse(text)
 
 
-# Split a raw reply into (emotion, english_text, japanese_speech, permission,
-# action). Pulls the leading [mood] tag, an executable action line
-# (###BG###/###MEM###) or a ###PERM### summary, and the ###JP### voice line,
-# then strips any leaked Japanese from the English body. `action` is a dict like
-# {"type": "background"|"memory", "value": ...} or None.
+# Split a raw reply into (emotion, segments, permission, action). Pulls the
+# leading [mood] tag and any action line (###BG###/###MEM### or ###PERM###), then
+# breaks the rest into PAGES at each ###JP### line. `segments` is a list of
+# {"text": english, "speech": japanese}; `action` is a dict or None.
 def parse(text):
     emotion = "talking"
     match = config.TAG_RE.match(text)
@@ -164,15 +163,35 @@ def parse(text):
         else:
             permission = "remember: " + action["value"]
 
-    speech = text
+    # Split the remaining text into PAGES: each ###JP### line ends a page,
+    # yielding {text: the english before it, speech: that page's spoken
+    # japanese}. Leaked Japanese is stripped from each english page (line
+    # structure / indentation is preserved so code blocks survive).
+    segments = []
+    chunks = text.split(config.JP_MARKER)
+    english = chunks[0]
 
-    if config.JP_MARKER in text:
-        english, japanese = text.split(config.JP_MARKER, 1)
-        text = english.strip()
-        speech = japanese.strip()
+    for chunk in chunks[1:]:
+        newline = chunk.find("\n")
 
-    # strip any leaked Japanese from the English body, but PRESERVE line
-    # structure / indentation (so code blocks survive)
-    text = config.CJK_RE.sub("", text)
+        if newline == -1:
+            speech, rest = chunk.strip(), ""
+        else:
+            speech, rest = chunk[:newline].strip(), chunk[newline + 1:]
 
-    return emotion, text.strip(), speech, permission, action
+        page = config.CJK_RE.sub("", english).strip()
+
+        if page or speech:
+            segments.append({"text": page, "speech": speech})
+
+        english = rest
+
+    tail = config.CJK_RE.sub("", english).strip()
+
+    if tail:
+        segments.append({"text": tail, "speech": ""})
+
+    if not segments:
+        segments = [{"text": config.CJK_RE.sub("", text).strip(), "speech": ""}]
+
+    return emotion, segments, permission, action

@@ -109,15 +109,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             model = ""
 
         if not message:
-            self._json({"emotion": "thinking", "text": "...you didn't say anything.",
-                        "speech": "", "permission": "", "action": None,
+            self._json({"emotion": "thinking",
+                        "segments": [{"text": "...you didn't say anything.", "speech": ""}],
+                        "permission": "", "action": None,
                         "image": images.pick_image("thinking")})
             return
 
         preview = message if len(message) <= 120 else message[:117] + "..."
         logbuf.add("POST /chat: %r (model=%s)" % (preview, model or "default"))
 
-        emotion, text, speech, permission, action = chat.run_claude(message, model)
+        emotion, segments, permission, action = chat.run_claude(message, model)
 
         # Only allow a background action that names a real background file.
         if action and action.get("type") == "background":
@@ -129,10 +130,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if action:
             logbuf.add("action: proposed %s -> %r" % (action.get("type"), action.get("value")))
 
-        logbuf.add("chat: -> emotion=%s, %d chars%s"
-                   % (emotion, len(text), ", speaking" if speech else ", silent"))
+        spoken = sum(1 for s in segments if s.get("speech"))
+        logbuf.add("chat: -> emotion=%s, %d page(s), %d spoken" % (emotion, len(segments), spoken))
 
-        self._json({"emotion": emotion, "text": text, "speech": speech,
+        self._json({"emotion": emotion, "segments": segments,
                     "permission": permission, "action": action,
                     "image": images.pick_image(emotion)})
 

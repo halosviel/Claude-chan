@@ -26,7 +26,7 @@ import { initHelp } from "./help.js";
 import { initMemory } from "./memory.js";
 import { initSettings } from "./settings-ui.js";
 import { initInputGate } from "./inputgate.js";
-import { sendMessage } from "./chat.js";
+import { sendMessage, initReplyClick } from "./chat.js";
 
 //
 // Boot the app: start every subsystem, connect the input box to the chat flow,
@@ -50,6 +50,7 @@ function main() {
   initBackgrounds();
   initPermission();
   initEditor({ onSubmit: sendMessage });
+  initReplyClick();
   initTranscript();
   initHelp();
   initMemory();

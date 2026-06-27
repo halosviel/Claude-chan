@@ -8,7 +8,7 @@
 // ===========================================================================
 
 import { getEditorState, enterTyping, cancelTyping } from "./editor.js";
-import { cancelThinking, cancelResponding } from "./chat.js";
+import { cancelThinking, cancelResponding, advanceReply } from "./chat.js";
 
 //
 // Handle Esc per state: thinking -> abort, responding -> stop, typing -> cancel.
@@ -35,6 +35,13 @@ export function initInputGate() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       handleEscape(event);
+      return;
+    }
+
+    // Space / Enter advance her reply (skip typing or go to the next page).
+    if ((event.key === " " || event.key === "Enter") && getEditorState() === "responding") {
+      event.preventDefault();
+      advanceReply();
       return;
     }
 

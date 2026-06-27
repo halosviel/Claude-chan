@@ -2,21 +2,23 @@
 //  chat.js
 //
 //  The send/reply flow. On submit it locks the box, shows a thinking animation,
-//  asks the server, decodes the voice up front, then types the reply into the
-//  box one character at a time (markdown-formatted) with the voice in sync. A
-//  proposed action surfaces the permission prompt after she has spoken.
+//  and asks the server. The reply comes back as PAGES (segments), each with its
+//  own text and spoken Japanese; she plays them visual-novel style: one page at
+//  a time, text typed out with the page's voice. A "click to continue" arrow
+//  shows when a page finishes; clicking the stage skips the current page's
+//  typing or advances to the next page. A proposed action surfaces the
+//  permission prompt after the last page.
 //
 //  Cancellation (Esc, via inputgate): cancelThinking() aborts the in-flight
-//  request and restores typing with the original message; cancelResponding()
-//  stops the typewriter + voice and returns to idle.
+//  request and restores typing; cancelResponding() stops the reply.
 // ===========================================================================
 
-import { fetchJson } from "./util/dom.js";
+import { qs, fetchJson } from "./util/dom.js";
 import { dlog } from "./log.js";
 import { playSound } from "./util/sound.js";
 import { typeOut, cycleFrames } from "./util/animation.js";
-import { DIALOGUE_TYPE_MS } from "./config.js";
 import { buildHtml } from "./markdown.js";
+import { DIALOGUE_TYPE_MS } from "./config.js";
 import { setEmotion, showImage } from "./avatar.js";
 import { prepareSpeech, playPrepared, stopAudio } from "./voice.js";
 import { getCurrentModel } from "./models.js";
@@ -31,21 +33,22 @@ import {
   enterTyping,
 } from "./editor.js";
 
-// Stops the current thinking-dot animation, if one is running.
+// Stops the thinking-dot animation, and aborts the in-flight /chat request.
 let stopThinking = null;
-
-// Aborts the in-flight /chat request (during the thinking phase).
 let controller = null;
-
-// Cancels the running reply typewriter (during the responding phase).
-let cancelTyping = null;
-
-// The message currently being processed, restored if thinking is cancelled.
 let pending = "";
 
+// Active reply playback state.
+let segments = [];
+let segIndex = 0;
+let audioClips = [];      // prepared (decoded) audio per page, fetched up front
+let typingCancel = null;  // cancels the current page's typewriter
+let pageComplete = false; // current page finished typing
+let onAllDone = null;     // run once the last page completes (reveals permission)
+
 //
-// Render a partial reply for the typewriter: format what's typed so far as
-// markdown and append a blinking caret until the last character is shown.
+// Render a partial reply for the typewriter: markdown plus a blinking caret
+// until the last character is shown.
 //
 function renderReply(visibleText, done) {
   return buildHtml(visibleText) + (done ? "" : '<span class="type-caret"></span>');
@@ -62,8 +65,134 @@ function clearThinking() {
 }
 
 //
-// Esc during the thinking phase: abort the request. The fetch rejects with an
-// AbortError, whose handler restores typing with the original message.
+// Show or hide the "click to continue" arrow.
+//
+function showContinue(show) {
+  const arrow = qs("#dialogue-continue");
+
+  if (arrow) {
+    arrow.classList.toggle("visible", show);
+  }
+}
+
+//
+// Clear all reply-playback state.
+//
+function resetPlayback() {
+  segments = [];
+  audioClips = [];
+  segIndex = 0;
+  pageComplete = false;
+  typingCancel = null;
+  showContinue(false);
+}
+
+//
+// Finish the whole reply: go idle (the last page stays on screen) and reveal
+// any permission prompt.
+//
+function endReply() {
+  const done = onAllDone;
+
+  onAllDone = null;
+  resetPlayback();
+  finishReply();
+
+  if (done) {
+    done();
+  }
+}
+
+//
+// After a page finishes (typed out or skipped): show the continue arrow if more
+// pages remain, otherwise end the reply.
+//
+function pageFinished() {
+  pageComplete = true;
+
+  if (segIndex < segments.length - 1) {
+    showContinue(true);
+  } else {
+    endReply();
+  }
+}
+
+//
+// Play the current page: start its voice and type its text. Guards against the
+// reader advancing while the audio is still decoding.
+//
+async function playPage() {
+  const editor = getEditorElement();
+  const index = segIndex;
+  const seg = segments[index];
+
+  pageComplete = false;
+  showContinue(false);
+
+  const audio = await audioClips[index];
+
+  if (index !== segIndex) {
+    return;
+  }
+
+  if (audio) {
+    playPrepared(audio);
+  }
+
+  typingCancel = typeOut(editor, seg.text || "...", {
+    delayMs: DIALOGUE_TYPE_MS,
+    render: renderReply,
+    onDone: () => {
+      typingCancel = null;
+      pageFinished();
+    },
+  });
+}
+
+//
+// Skip the current page's typing: show its full text at once.
+//
+function skipPage() {
+  const editor = getEditorElement();
+
+  if (typingCancel) {
+    typingCancel();
+    typingCancel = null;
+  }
+
+  editor.innerHTML = renderReply(segments[segIndex].text || "...", true);
+  editor.scrollTop = editor.scrollHeight;
+  pageFinished();
+}
+
+//
+// Advance the reply on a click: skip the current page's typing if it's still
+// going, else move to the next page. Returns false when nothing happened (no
+// reply playing, or already on the finished last page).
+//
+export function advanceReply() {
+  if (segments.length === 0) {
+    return false;
+  }
+
+  if (!pageComplete) {
+    skipPage();
+    return true;
+  }
+
+  if (segIndex < segments.length - 1) {
+    stopAudio();
+    segIndex += 1;
+    playPage();
+    return true;
+  }
+
+  return false;
+}
+
+//
+// Esc during thinking: abort the request (its AbortError handler restores
+// typing with the original message).
 //
 export function cancelThinking() {
   if (controller) {
@@ -73,22 +202,34 @@ export function cancelThinking() {
 }
 
 //
-// Esc during the responding phase: stop the typewriter and the voice, then go
-// idle (the partial reply stays on screen).
+// Esc during the reply: stop the typewriter and voice, go idle.
 //
 export function cancelResponding() {
-  if (cancelTyping) {
-    cancelTyping();
-    cancelTyping = null;
+  if (typingCancel) {
+    typingCancel();
+    typingCancel = null;
   }
 
   stopAudio();
+  onAllDone = null;
+  resetPlayback();
   finishReply();
 }
 
 //
-// Send a message and play out the reply. Locks the box while she thinks and
-// replies; you cannot type until she finishes and you press "/".
+// Begin playing a list of pages (with their voices prefetched).
+//
+function playReply(pages, afterLast) {
+  segments = pages;
+  segIndex = 0;
+  pageComplete = false;
+  onAllDone = afterLast;
+  audioClips = pages.map((page) => prepareSpeech(page.speech || ""));
+  playPage();
+}
+
+//
+// Send a message and play out the reply, page by page.
 //
 export async function sendMessage(message) {
   message = (message || "").trim();
@@ -121,63 +262,37 @@ export async function sendMessage(message) {
 
     dlog("chat response:", {
       emotion: data.emotion,
-      text: data.text,
-      speechLen: (data.speech || "").length,
+      pages: (data.segments || []).length,
       permission: data.permission,
-      image: data.image,
+      action: data.action,
     });
 
     clearThinking();
-
-    const audio = await prepareSpeech(data.speech || data.text || "");
-
     showImage(data.image);
     markReplyMode();
 
-    // Hold any permission prompt until she has finished speaking (or, with no
-    // voice, finished typing) so she can explain herself first. Fires once.
-    let permShown = false;
-    const revealPermission = () => {
-      if (permShown || !data.permission) {
-        return;
+    const pages = data.segments && data.segments.length
+      ? data.segments
+      : [{ text: "...", speech: "" }];
+
+    recordClaude(pages.map((p) => p.text).filter(Boolean).join("\n") || "...");
+
+    playReply(pages, () => {
+      if (data.permission) {
+        showPermission(data.permission, {
+          onAccept: () => {
+            runAction(data.action);
+            sendMessage("yes, go ahead!");
+          },
+          onReject: () => sendMessage("no, please don't."),
+        });
       }
-
-      permShown = true;
-      showPermission(data.permission, {
-        onAccept: () => {
-          runAction(data.action);
-          sendMessage("yes, go ahead!");
-        },
-        onReject: () => sendMessage("no, please don't."),
-      });
-    };
-
-    // Record her line now, as the voice + typing fire together, so the
-    // transcript appears exactly when she starts talking (not during synthesis).
-    recordClaude(data.text || "...");
-
-    if (audio) {
-      playPrepared(audio, { onEnd: revealPermission });
-    }
-
-    cancelTyping = typeOut(editor, data.text || "...", {
-      delayMs: DIALOGUE_TYPE_MS,
-      render: renderReply,
-      onDone: () => {
-        cancelTyping = null;
-        finishReply();
-
-        if (!audio) {
-          revealPermission();
-        }
-      },
     });
   } catch (error) {
     controller = null;
     clearThinking();
 
     if (error.name === "AbortError") {
-      // Cancelled mid-thinking: drop the (un-answered) turn and restore typing.
       dlog("submit: cancelled");
       popTurn();
       setEmotion("happy");
@@ -188,13 +303,20 @@ export async function sendMessage(message) {
 
     dlog("submit error:", error);
     setEmotion("sad");
-    cancelTyping = typeOut(editor, "i couldn't reach the server... is server.py still running?", {
-      delayMs: DIALOGUE_TYPE_MS,
-      render: renderReply,
-      onDone: () => {
-        cancelTyping = null;
-        finishReply();
-      },
-    });
+    markReplyMode();
+    recordClaude("i couldn't reach the server...");
+    playReply([{ text: "i couldn't reach the server... is server.py still running?", speech: "" }], null);
+  }
+}
+
+//
+// Wire the Claude-chan stage so a click skips/advances her reply (visual-novel
+// click-through). Called once at startup.
+//
+export function initReplyClick() {
+  const stage = qs(".vn-center");
+
+  if (stage) {
+    stage.addEventListener("click", () => advanceReply());
   }
 }

@@ -78,7 +78,8 @@ def engine_up():
 # using `speaker` (style id) or the configured default. Returns None, logging the
 # reason, on empty text or any engine error.
 def synth_wav(text, speaker=None):
-    text = (text or "").strip()
+    # collapse newlines to spaces -- AivisSpeech otherwise stops at the first one
+    text = " ".join((text or "").split("\n")).strip()
 
     if not text:
         return None

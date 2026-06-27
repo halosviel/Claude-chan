@@ -27,8 +27,8 @@ export const DEFAULT_SOUND_VOLUME = 100;
 
 // --- Theme colors ---------------------------------------------------------
 // PRIMARY is used for window title bars, the taskbar, and the section headers
-// in the Claude-chan app. SECONDARY (a lighter orange) is used for selected
-// list items (background / model / language) and your transcript messages.
+// in the Claude-chan app. SECONDARY is used for selected
+// list items (background / model / language) and user backlog messages.
 export const PRIMARY_COLOR = "#e8893a";
 export const SECONDARY_COLOR = "#f18d8d";
 
