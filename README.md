@@ -1,103 +1,101 @@
 # Claude_chan
 
-A tiny, 100% local chat companion. You type, *I* reply (through the `claude`
-CLI you're already logged into — **no Anthropic API key needed**), a little
-anime-girl portrait changes to match my mood, and I speak my reply out loud in
-Japanese.
+Claude-code as a dating sim in a virtual machine, fully vibe coded.
 
-## Run it
+<p align="center">
+    <img width="1827" height="959" alt="screenshot" src="https://github.com/user-attachments/assets/5110df1b-6ff5-4b01-aee9-044dbb37a169" />
+    <small><i>Claude-chan is based off <a href="https://gekkan-shoujo-nozakikun.fandom.com/wiki/Chiyo_Sakura">Chiyo Sakura</a>.</i></small>
+</p>
 
-From VS Code: open this folder and press **F5** ("Run Claude_chan"), or open a
-terminal here and run:
+## Features
+- Terminal app to see logs
+- Switch between voices
+- Switch between sceneries
+- Tons of Claude-chan sprites (by Grok)
+- Intuitive controls from dating sims
 
-```bash
+## Retains everything from Claude-code
+- Attachment/long message pasting
+- `ESC` to cancel response/thinking
+- Permission requests
+- Switch between models
+
+Claude-chan's messages are displayed as click-through segments, visual-novel style.
+
+Work in progress!
+
+# Installation
+Installation is simple since Claude-chan is made to have as little dependencies as possible!
+
+## Archlinux
+### Dependencies
+[python3](https://archlinux.org/packages/core/x86_64/python/) - Pacman
+```
+sudo pacman -S python
+```
+[claude-code](https://aur.archlinux.org/packages/claude-code) - AUR
+```
+yay -S claude-code
+```
+
+## Windows
+### Dependencies
+[python3](https://www.python.org/downloads/windows/) - winget
+```
+winget install Python.Python.3.12
+```
+If you want to install manually from python.org instead, tick **"Add python.exe to PATH"**.
+
+[claude-code](https://docs.anthropic.com/en/docs/claude-code) - PowerShell
+```
+irm https://claude.ai/install.ps1 | iex
+```
+Or if you prefer npm:
+```
+npm install -g @anthropic-ai/claude-code
+```
+
+### Get the source
+```
+git clone https://github.com/halosviel/Claude-chan.git
+cd Claude-chan
+```
+
+Make sure you are signed in your respective Claude-code app and have an active subscription!!!
+
+# Usage
+## Easy way - VSC
+Open the project in VSC and simply press F5. It should open the terminal and you should see something like this:
+<img width="1359" height="144" alt="image" src="https://github.com/user-attachments/assets/ea9bc6cb-5796-460f-9858-610a738ba508" />
+
+Then, open the `http://localhost:8765` website in your browser! (might be different)
+
+This works the same on Linux and Windows.
+
+## Hard way - From Source
+### Linux
+Run AivisSpeech in a new terminal:
+```
+~/.local/bin/aivisspeech-engine
+```
+Then run `server.py` in another terminal:
+```
+cd ~/Local/Projects/Claude_chan
 python3 server.py
 ```
 
-Then open **http://localhost:8765** in your browser.
+### Windows
+Install
+[AivisSpeech](https://aivis-project.com/) and launch it. Make sure it's running in the background.
 
-That's it — pure Python standard library, nothing to install.
-
-## How the "no API" part works
-
-`server.py` shells out to `claude -p` (print mode) and reuses one resumed
-session so the conversation keeps its context. It's the same login you use in
-the terminal, not a billed API key.
-
-## Voice
-
-I reply in English in the chat bubble but speak a Japanese version of it. Use
-the 🔊/🔇 button (top-right) to toggle the voice.
-
-The voice comes **entirely from [VOICEVOX](https://voicevox.hp.peatix.com/)** —
-a free, fully-local Japanese TTS engine with natural, cute anime voices. There
-is **no fallback**: if VOICEVOX isn't running, the app stays silent, a small
-notice shows on the page, and the server prints the reason to its console.
-
-### Setup
-
-1. Install VOICEVOX. On Arch, prefer the prebuilt `voicevox-appimage` (it
-   bundles the engine); `voicevox-bin` is GUI-only and needs `voicevox-engine`
-   separately. Elsewhere, download it from the website.
-2. Start the engine — either launch the VOICEVOX app (the GUI also starts the
-   engine), or run it headless (see below). It serves `http://127.0.0.1:50021`.
-   Confirm with: `curl http://127.0.0.1:50021/version`
-3. Reload the page. The app detects it automatically — nothing to configure.
-
-**Running the engine headless (no GUI window):** extract the engine once and
-run it directly, e.g. on Linux from the installed AppImage:
-
-```bash
-cd ~/.local/share/voicevox-engine && voicevox --appimage-extract   # one-time
-./squashfs-root/vv-engine/run --host 127.0.0.1 --port 50021         # start it
+Then run `server.py` from PowerShell (or `cmd`):
+```
+cd path\to\Claude-chan
+python server.py
 ```
 
-The engine must be running whenever you use Claude_chan.
+Make sure AivisSpeech and the python server are running simultaneously.
+Open the `http://localhost:8765` website in your browser (might be different).
 
-### Choosing the voice
-
-- Pick a character/style by setting an env var when starting the server, e.g.
-  `VOICEVOX_SPEAKER=3 python3 server.py`.
-- List the available speaker IDs with: `curl http://127.0.0.1:50021/speakers`
-  (e.g. 2 = Shikoku Metan, 3 = Zundamon, 8 = Kasukabe Tsumugi).
-- If the engine runs on another host/port, set `VOICEVOX_URL` too.
-
-> Cross-platform note: VOICEVOX runs on Windows/macOS/Linux, so this works
-> anywhere. Nothing is bundled into the project — only the running engine is
-> needed.
-
-## Cross-platform notes (Windows / Mac)
-
-The app itself is just Python stdlib + static files, so it runs anywhere Python
-3 and the `claude` CLI are installed. A couple of small things to adjust on
-other machines:
-
-- Run it with whatever launches Python 3 there (`python server.py` on Windows,
-  `python3 server.py` on macOS/Linux).
-
-## Swapping in your own images
-
-There's one folder per mood under `images/`:
-
-```
-images/happy/  talking/  thinking/  angry/  sad/  laughing/  embarrassed/
-```
-
-The PNGs in them are simple drawn placeholders so the app works offline without
-any copyright worries.
-
-To use real pictures, **just drop PNG files into the matching mood folder** —
-no code changes needed. The server scans the folder live, picks a random PNG
-each time, and avoids showing the same one twice in a row. Put in as many as
-you like per mood.
-
-If a mood folder is empty, it automatically falls back to a picture from
-`images/thinking/`, so that folder should always have at least one image.
-
-## Uninstall
-
-Just delete this folder. Nothing was installed system-wide.
-
-One note: chat sessions are stored by the `claude` CLI under `~/.claude/`
-(shared with all your Claude Code usage), not in this folder, so deleting this
-folder leaves those alone — which is what you want.
+# Troubleshooting
+Ask your Claude-code to debug!
