@@ -7,16 +7,47 @@
 #  routes requests to them. See robots.txt for the endpoint map.
 # ===========================================================================
 
+import glob
 import http.server
 import json
+import os
 import socketserver
+import sys
+import threading
+import time
 import urllib.parse
+import uuid
 
 from . import config
 from . import images
 from . import voice
 from . import chat
 from . import logbuf
+
+
+# Backend files (server + app package). A change here needs a process restart.
+def _backend_signature():
+    files = [os.path.join(config.ROOT, "server.py")] + glob.glob(os.path.join(config.ROOT, "app", "*.py"))
+    return tuple(sorted((p, os.path.getmtime(p)) for p in files if os.path.exists(p)))
+
+
+# Watch the backend files and re-exec the process when one changes, so editing
+# Python takes effect without a manual restart. Disable with CLAUDECHAN_RELOAD=0.
+def _watch_and_restart():
+    last = _backend_signature()
+
+    while True:
+        time.sleep(1)
+
+        try:
+            current = _backend_signature()
+        except OSError:
+            continue
+
+        if current != last:
+            logbuf.add("reload: backend changed -> restarting")
+            print("reloading (a backend file changed)...")
+            os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -40,7 +71,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         if parsed.path == "/image":
             query = urllib.parse.parse_qs(parsed.query)
-            emotion = (query.get("emotion", ["thinking"])[0] or "thinking").lower()
+            emotion = (query.get("emotion", ["idle"])[0] or "idle").lower()
             self._json({"emotion": emotion, "image": images.pick_image(emotion)})
             return
 
@@ -92,8 +123,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         super().do_GET()
 
-    # Route POST /chat: validate the body, run the model, return the reply JSON.
+    # Image extensions by content type, for saving pasted images.
+    _IMAGE_EXTS = {
+        "image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg",
+        "image/gif": ".gif", "image/webp": ".webp",
+    }
+
+    # Route POST: a pasted image upload, or a chat turn.
     def do_POST(self):
+        if self.path == "/paste-image":
+            self._save_pasted_image()
+            return
+
         if self.path != "/chat":
             self.send_error(404)
             return
@@ -109,16 +150,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             model = ""
 
         if not message:
-            self._json({"emotion": "thinking",
+            self._json({"emotion": "idle",
                         "segments": [{"text": "...you didn't say anything.", "speech": ""}],
                         "permission": "", "action": None,
-                        "image": images.pick_image("thinking")})
+                        "image": images.pick_image("idle")})
             return
 
         preview = message if len(message) <= 120 else message[:117] + "..."
         logbuf.add("POST /chat: %r (model=%s)" % (preview, model or "default"))
 
-        emotion, segments, permission, action = chat.run_claude(message, model)
+        emotion, segments, permission, action, out_of_credits = chat.run_claude(message, model)
 
         # Only allow a background action that names a real background file.
         if action and action.get("type") == "background":
@@ -135,7 +176,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         self._json({"emotion": emotion, "segments": segments,
                     "permission": permission, "action": action,
+                    "out_of_credits": out_of_credits,
                     "image": images.pick_image(emotion)})
+
+    # Save a pasted image to PASTE_DIR and return its absolute path, so the chat
+    # message can point Claude-chan's Read tool at it (Read can view images).
+    def _save_pasted_image(self):
+        length = int(self.headers.get("Content-Length", 0))
+        ctype = (self.headers.get("Content-Type", "image/png").split(";")[0]).strip().lower()
+
+        if length <= 0 or length > 30 * 1024 * 1024:
+            self.send_error(413, "image missing or too large")
+            return
+
+        data = self.rfile.read(length)
+        ext = self._IMAGE_EXTS.get(ctype, ".png")
+        os.makedirs(config.PASTE_DIR, exist_ok=True)
+        name = "paste-" + uuid.uuid4().hex[:12] + ext
+        path = os.path.join(config.PASTE_DIR, name)
+
+        with open(path, "wb") as handle:
+            handle.write(data)
+
+        logbuf.add("paste: saved image %s (%d bytes)" % (name, len(data)))
+        self._json({"path": path, "name": name})
 
     # Write an object as a JSON 200 response.
     def _json(self, obj):
@@ -151,7 +215,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 def main():
     socketserver.TCPServer.allow_reuse_address = True
 
-    with socketserver.ThreadingTCPServer(("127.0.0.1", config.PORT), Handler) as httpd:
+    # Bind first; if the port is taken, it's already running -- say so plainly
+    # instead of crashing with a traceback (e.g. F5 while the service is up).
+    try:
+        httpd = socketserver.ThreadingTCPServer(("127.0.0.1", config.PORT), Handler)
+    except OSError:
+        print("Claude-chan is already running on port %d (the claudechan service or" % config.PORT)
+        print("another instance). Stop it first:  systemctl --user stop claudechan")
+        return
+
+    # Auto-restart on backend edits (unless disabled) so Python changes apply
+    # without a manual restart. The page is refreshed by hand (no live-reload).
+    if os.environ.get("CLAUDECHAN_RELOAD") != "0":
+        threading.Thread(target=_watch_and_restart, daemon=True).start()
+
+    with httpd:
         print("Claude-chan running at  http://localhost:%d" % config.PORT)
         print("Press Ctrl+C to stop.")
 

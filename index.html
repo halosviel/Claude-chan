@@ -48,7 +48,7 @@
 
           <div class="vn-center">
             <div class="portrait-body">
-              <img id="avatar" src="assets/emotions/happy/happy-1.png" alt="Claude-chan">
+              <img id="avatar" src="assets/emotions/idle/idle-1.png" alt="Claude-chan">
             </div>
             <div class="dialogue" id="dialogue">
               <span class="speaker" id="subbar-name">you</span>
@@ -56,6 +56,7 @@
               <div id="editor" class="md-editor" contenteditable="true" role="textbox"
                    aria-multiline="true" data-placeholder="say something..."></div>
               <span class="dialogue-continue" id="dialogue-continue">▼</span>
+              <span class="dialogue-timer" id="dialogue-timer"></span>
             </div>
           </div>
 
@@ -152,6 +153,8 @@
         <ul class="help-list">
           <li><span data-i18n="help.chat">Press <kbd>/</kbd> to chat with Claude-chan</span></li>
           <li><span data-i18n="help.cancel">Press <kbd>Esc</kbd> to cancel prompt</span></li>
+          <li><span data-i18n="help.next">Press <kbd>Space</kbd> / <kbd>→</kbd> or click to go forward</span></li>
+          <li><span data-i18n="help.prev">Press <kbd>←</kbd> or right-click to go back</span></li>
         </ul>
       </div>
       <span class="rh rh-nw"></span>
@@ -226,6 +229,22 @@
       <div class="perm-buttons">
         <button id="perm-yes" type="button" data-i18n="perm.yes">Yes</button>
         <button id="perm-no" type="button" data-i18n="perm.no">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- out-of-credits notice (shown after she says she's out) -->
+  <div class="window credits-window" id="credits-window" style="display:none">
+    <div class="titlebar">
+      <span class="win-title"><span class="ico">⚠</span> Out of credits</span>
+      <span class="win-buttons">
+        <button class="win-close" type="button" title="close">✕</button>
+      </span>
+    </div>
+    <div class="win-body credits-body">
+      <p>Claude-chan has run out of credits, so she can't reply right now. Top up your Claude account, then try again.</p>
+      <div class="credits-buttons">
+        <button id="credits-ok" type="button">OK</button>
       </div>
     </div>
   </div>

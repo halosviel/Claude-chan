@@ -4,7 +4,7 @@
 #  Mood portraits and background scenes. Image selection is owned entirely by
 #  the server: it scans the hand-curated assets/emotions/<mood>/ folders, never
 #  regenerating or overwriting them, and returns a random non-repeating picture
-#  (falling back to the "thinking" folder when a mood folder is empty, by
+#  (falling back to the FALLBACK_EMOTION folder when a mood folder is empty, by
 #  design). Backgrounds are simply listed for the scene picker.
 # ===========================================================================
 
@@ -30,8 +30,8 @@ def list_pngs(folder):
 
 
 # Pick a random PNG for a mood, avoiding an immediate repeat. Unknown moods map
-# to "talking"; an empty mood folder falls back to "thinking" (intentional, not
-# a bug). Returns a web path like "assets/emotions/happy/foo.png", or None.
+# to "talking"; an empty mood folder falls back to FALLBACK_EMOTION (intentional,
+# not a bug). Returns a web path like "assets/emotions/happy/foo.png", or None.
 def pick_image(emotion):
     if emotion not in config.EMOTIONS:
         emotion = "talking"

@@ -32,7 +32,12 @@ export const DEFAULT_SOUND_VOLUME = 100;
 export const PRIMARY_COLOR = "#e8893a";
 export const SECONDARY_COLOR = "#f18d8d";
 
+// HOVER_COLOR is the background of a list option (a model, language, background,
+// or voice) while your mouse hovers over it — before it's actually selected.
+export const HOVER_COLOR = "#e9b2b2";
+
 // --- Dialogue typing speed ------------------------------------------------
 // Milliseconds between characters as Claude-chan types out her reply in the
+
 // dialogue box. Lower = faster (e.g. 18 is brisk, 40 is slow, 0 is instant).
 export const DIALOGUE_TYPE_MS = 18;

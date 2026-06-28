@@ -18,19 +18,23 @@ import { dlog } from "./log.js";
 import { playSound } from "./util/sound.js";
 import { typeOut, cycleFrames } from "./util/animation.js";
 import { buildHtml } from "./markdown.js";
-import { DIALOGUE_TYPE_MS } from "./config.js";
+import { getTypeMs } from "./settings.js";
 import { setEmotion, showImage } from "./avatar.js";
-import { prepareSpeech, playPrepared, stopAudio } from "./voice.js";
+import { prepareSpeech, playPrepared, stopAudio, isVoiceEnabled } from "./voice.js";
 import { getCurrentModel } from "./models.js";
 import { showPermission } from "./permission.js";
+import { showCredits } from "./credits.js";
+import { startThinkTimer, clearThinkTimer } from "./thinktimer.js";
 import { runAction } from "./actions.js";
 import { recordUser, recordClaude, popTurn } from "./transcript.js";
 import {
   getEditorElement,
+  getEditorState,
   beginThinking,
   markReplyMode,
   finishReply,
   enterTyping,
+  setHintProgress,
 } from "./editor.js";
 
 // Stops the thinking-dot animation, and aborts the in-flight /chat request.
@@ -41,6 +45,9 @@ let pending = "";
 // Active reply playback state.
 let segments = [];
 let segIndex = 0;
+let segReached = -1;      // highest page reached so far: new pages voice + log, revisits don't
+let shownEmotion = null;   // mood currently on the portrait, to vary it per section
+let currentImageSrc = null; // the exact portrait src currently shown
 let audioClips = [];      // prepared (decoded) audio per page, fetched up front
 let typingCancel = null;  // cancels the current page's typewriter
 let pageComplete = false; // current page finished typing
@@ -76,26 +83,74 @@ function showContinue(show) {
 }
 
 //
+// Fetch a fresh portrait src for a mood (no display), or null on failure.
+//
+async function fetchEmotionImage(mood) {
+  try {
+    const data = await fetchJson("/image?emotion=" + encodeURIComponent(mood));
+
+    return data.image;
+  } catch (error) {
+    return null;
+  }
+}
+
+//
+// Set the portrait for a section. The chosen picture is CACHED on the segment, so
+// stepping back/forward shows the exact same image that section originally had. A
+// new section with a different mood always swaps; the same mood swaps to another
+// picture ~half the time (when allowReroll) so a long reply isn't static.
+//
+async function showSectionImage(seg, allowReroll) {
+  if (seg.image) {
+    shownEmotion = seg.emotion || shownEmotion;
+    currentImageSrc = seg.image;
+    showImage(seg.image);
+    return;
+  }
+
+  const mood = seg.emotion || "talking";
+  let src = currentImageSrc;
+
+  if (mood !== shownEmotion || (allowReroll && Math.random() < 0.5)) {
+    const fetched = await fetchEmotionImage(mood);
+
+    if (fetched) {
+      src = fetched;
+    }
+  }
+
+  shownEmotion = mood;
+  currentImageSrc = src;
+  seg.image = src;
+
+  if (src) {
+    showImage(src);
+  }
+}
+
+//
 // Clear all reply-playback state.
 //
 function resetPlayback() {
   segments = [];
   audioClips = [];
   segIndex = 0;
+  segReached = -1;
   pageComplete = false;
   typingCancel = null;
   showContinue(false);
 }
 
 //
-// Finish the whole reply: go idle (the last page stays on screen) and reveal
-// any permission prompt.
+// Finish the whole reply: go idle and reveal any permission prompt. The pages
+// are KEPT (not reset) so you can still right-click back through them; a new
+// prompt replaces them.
 //
 function endReply() {
   const done = onAllDone;
 
   onAllDone = null;
-  resetPlayback();
   finishReply();
 
   if (done) {
@@ -118,8 +173,9 @@ function pageFinished() {
 }
 
 //
-// Play the current page: start its voice and type its text. Guards against the
-// reader advancing while the audio is still decoding.
+// Play a NEW page (one not reached before): start its voice and type its text,
+// and log it to the backlog as she begins — so voice, text, and transcript all
+// appear together. Guards against the reader advancing while audio is decoding.
 //
 async function playPage() {
   const editor = getEditorElement();
@@ -135,12 +191,29 @@ async function playPage() {
     return;
   }
 
-  if (audio) {
-    playPrepared(audio);
+  // Stop the thinking dots only now, the instant her text + voice begin, so they
+  // keep animating through the audio-decode wait instead of freezing on a frame.
+  clearThinking();
+  clearThinkTimer();
+  setHintProgress(index + 1, segments.length);
+  showSectionImage(seg, true);
+
+  // Record this page to the backlog only as she actually starts speaking it, so
+  // the transcript stays in step with her voice and the dialogue box.
+  if ((seg.text || "").trim()) {
+    recordClaude(seg.text);
   }
 
+  if (audio) {
+    playPrepared(audio);
+  } else if ((seg.speech || "").trim() && isVoiceEnabled()) {
+    dlog("voice: expected to speak this page but have no audio clip");
+  }
+
+  segReached = Math.max(segReached, index);
+
   typingCancel = typeOut(editor, seg.text || "...", {
-    delayMs: DIALOGUE_TYPE_MS,
+    delayMs: getTypeMs(),
     render: renderReply,
     onDone: () => {
       typingCancel = null;
@@ -150,7 +223,29 @@ async function playPage() {
 }
 
 //
-// Skip the current page's typing: show its full text at once.
+// Jump straight to a page you've already seen: show its full text at once with no
+// typewriter (back/forward through the reply). Navigation never stops the voice --
+// only starting a NEW, unheard section swaps the audio (see playPage).
+//
+function showPage(index) {
+  const editor = getEditorElement();
+
+  if (typingCancel) {
+    typingCancel();
+    typingCancel = null;
+  }
+
+  segIndex = index;
+  editor.innerHTML = renderReply(segments[index].text || "...", true);
+  editor.scrollTop = editor.scrollHeight;
+  pageComplete = true;
+  setHintProgress(index + 1, segments.length);
+  showSectionImage(segments[index], false);
+  showContinue(index < segments.length - 1);
+}
+
+//
+// Skip the current page's typing: show its full text at once (voice keeps going).
 //
 function skipPage() {
   const editor = getEditorElement();
@@ -166,9 +261,9 @@ function skipPage() {
 }
 
 //
-// Advance the reply on a click: skip the current page's typing if it's still
-// going, else move to the next page. Returns false when nothing happened (no
-// reply playing, or already on the finished last page).
+// Advance the reply on a left-click: skip the current page's typing if it's
+// still going, else move to the next page (voicing it only if it's new). Returns
+// false when nothing happened (no reply, or already on the last page).
 //
 export function advanceReply() {
   if (segments.length === 0) {
@@ -181,13 +276,32 @@ export function advanceReply() {
   }
 
   if (segIndex < segments.length - 1) {
-    stopAudio();
-    segIndex += 1;
-    playPage();
+    const next = segIndex + 1;
+
+    if (next > segReached) {
+      segIndex = next;
+      playPage();
+    } else {
+      showPage(next);
+    }
+
     return true;
   }
 
   return false;
+}
+
+//
+// Step BACK one page on a right-click: show the previous page with no voice
+// replay. Returns false when there's nothing before the current page.
+//
+export function backReply() {
+  if (segments.length === 0 || segIndex === 0) {
+    return false;
+  }
+
+  showPage(segIndex - 1);
+  return true;
 }
 
 //
@@ -222,6 +336,9 @@ export function cancelResponding() {
 function playReply(pages, afterLast) {
   segments = pages;
   segIndex = 0;
+  segReached = -1;
+  shownEmotion = null;
+  currentImageSrc = null;
   pageComplete = false;
   onAllDone = afterLast;
   audioClips = pages.map((page) => prepareSpeech(page.speech || ""));
@@ -246,7 +363,8 @@ export async function sendMessage(message) {
   recordUser(message);
   beginThinking();
   dlog("submit:", JSON.stringify(message));
-  setEmotion("thinking");
+  setEmotion("idle");
+  startThinkTimer();
   stopThinking = cycleFrames(editor, [".", "..", "..."], 400);
   controller = new AbortController();
 
@@ -265,19 +383,21 @@ export async function sendMessage(message) {
       pages: (data.segments || []).length,
       permission: data.permission,
       action: data.action,
+      outOfCredits: data.out_of_credits,
     });
 
-    clearThinking();
-    showImage(data.image);
     markReplyMode();
 
     const pages = data.segments && data.segments.length
       ? data.segments
-      : [{ text: "...", speech: "" }];
-
-    recordClaude(pages.map((p) => p.text).filter(Boolean).join("\n") || "...");
+      : [{ text: "...", speech: "", emotion: data.emotion }];
 
     playReply(pages, () => {
+      if (data.out_of_credits) {
+        showCredits();
+        return;
+      }
+
       if (data.permission) {
         showPermission(data.permission, {
           onAccept: () => {
@@ -302,10 +422,8 @@ export async function sendMessage(message) {
     }
 
     dlog("submit error:", error);
-    setEmotion("sad");
     markReplyMode();
-    recordClaude("i couldn't reach the server...");
-    playReply([{ text: "i couldn't reach the server... is server.py still running?", speech: "" }], null);
+    playReply([{ text: "i couldn't reach the server... is server.py still running?", speech: "", emotion: "sad" }], null);
   }
 }
 
@@ -316,7 +434,28 @@ export async function sendMessage(message) {
 export function initReplyClick() {
   const stage = qs(".vn-center");
 
-  if (stage) {
-    stage.addEventListener("click", () => advanceReply());
+  if (!stage) {
+    return;
   }
+
+  // Only navigate her reply while it's playing or sitting finished (idle) -- not
+  // while she's thinking or while you're typing a new prompt.
+  const canNavigate = () => {
+    const state = getEditorState();
+
+    return state === "responding" || state === "idle";
+  };
+
+  stage.addEventListener("click", () => {
+    if (canNavigate()) {
+      advanceReply();
+    }
+  });
+
+  stage.addEventListener("contextmenu", (event) => {
+    if (canNavigate() && segments.length > 1) {
+      event.preventDefault();
+      backReply();
+    }
+  });
 }

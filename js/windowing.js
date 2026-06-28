@@ -233,6 +233,7 @@ export function hideWindow(win, mode) {
 
 //
 // Reveal a window from the taskbar, bring it to front, and play the open sound.
+// It joins the centered flex flow (tiling) unless it's already been pinned.
 //
 export function showWindow(win) {
   playSound("app-open");
@@ -272,6 +273,63 @@ export function showWindowCentered(win) {
 
   win.style.left = Math.max(8, (innerWidth - width) / 2) + "px";
   win.style.top = Math.max(8, (innerHeight - height) / 2 - 20) + "px";
+  bringToFront(win);
+  win.classList.add("win-anim-open");
+
+  const done = (event) => {
+    if (event.target !== win) {
+      return;
+    }
+
+    win.classList.remove("win-anim-open");
+    win.removeEventListener("animationend", done);
+  };
+
+  win.addEventListener("animationend", done);
+  setTaskActive(win, true);
+}
+
+//
+// Position a (fixed) popup near the CENTER of the Claude-chan app window, with a
+// small random jitter so it doesn't land in the exact same spot every time.
+// Falls back to screen-center when the app window isn't found. Sets left/top only.
+//
+export function placeNearAppCenter(win) {
+  const width = win.offsetWidth;
+  const height = win.offsetHeight;
+  const app = qs("#win-app");
+  let left;
+  let top;
+
+  if (app) {
+    const rect = app.getBoundingClientRect();
+    const jitter = 45;
+
+    left = rect.left + (rect.width - width) / 2 + (Math.random() * 2 - 1) * jitter;
+    top = rect.top + (rect.height - height) / 2 + (Math.random() * 2 - 1) * jitter;
+  } else {
+    left = (innerWidth - width) / 2;
+    top = (innerHeight - height) / 2 - 20;
+  }
+
+  win.style.left = Math.max(8, Math.min(left, innerWidth - width - 8)) + "px";
+  win.style.top = Math.max(8, Math.min(top, innerHeight - height - 8)) + "px";
+}
+
+//
+// Reveal a window around Claude-chan's portrait (varied each time; never covering
+// her). Falls back to screen-center when there's no portrait. Shared by the Help
+// and Permission popups.
+//
+export function showWindowBeside(win) {
+  playSound("app-open");
+
+  win.dataset.fs = "";
+  win.style.position = "fixed";
+  win.style.margin = "0";
+  win.style.display = "";
+
+  placeNearAppCenter(win);
   bringToFront(win);
   win.classList.add("win-anim-open");
 

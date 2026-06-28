@@ -27,7 +27,7 @@ let audioContext = null;
 // Return the shared AudioContext, creating it on first use. Browsers only allow
 // it to start after a user gesture, so creation is deferred until a sound plays.
 //
-function getAudioContext() {
+export function getAudioContext() {
   if (!audioContext) {
     const Ctor = window.AudioContext || window.webkitAudioContext;
     audioContext = new Ctor();
@@ -44,7 +44,9 @@ export function playSound(name) {
   try {
     const audio = new Audio("assets/sounds/" + name + ".mp3");
 
-    audio.volume = sfxGain(name);
+    // <audio> volume is capped at 1 by the browser, so a file SFX can't exceed
+    // 100%; the synthesized tones below (Web Audio) do honour >100%.
+    audio.volume = Math.min(1, sfxGain(name));
     audio.play().catch(() => {});
   } catch (error) {
     // A sound effect failing to load is never worth interrupting the app for.

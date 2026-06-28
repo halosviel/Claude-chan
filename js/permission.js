@@ -10,7 +10,7 @@
 import { qs } from "./util/dom.js";
 import { playSound } from "./util/sound.js";
 import { dlog } from "./log.js";
-import { makeDraggable, bringToFront, toggleFullscreen } from "./windowing.js";
+import { makeDraggable, bringToFront, toggleFullscreen, placeNearAppCenter } from "./windowing.js";
 
 // The callbacks for the prompt currently on screen.
 let onAccept = () => {};
@@ -37,6 +37,12 @@ export function showPermission(summary, handlers = {}) {
   const win = qs("#perm-window");
 
   if (!win) {
+    dlog("permission: FAILED to show (no #perm-window in the page)");
+    return;
+  }
+
+  if (!summary) {
+    dlog("permission: FAILED to show (empty summary)");
     return;
   }
 
@@ -47,42 +53,37 @@ export function showPermission(summary, handlers = {}) {
   win.dataset.fs = "";
   win.style.cssText = "";
   win.style.display = "";
-
-  const width = win.offsetWidth;
-  const height = win.offsetHeight;
-  const portrait = qs(".portrait-body");
-  let left;
-  let top;
-
-  if (portrait) {
-    const rect = portrait.getBoundingClientRect();
-
-    top = rect.top + (rect.height - height) / 2;
-    left = rect.right + 12;
-
-    if (left + width > innerWidth - 8) {
-      left = rect.left - width - 12;
-    }
-  } else {
-    left = (innerWidth - width) / 2;
-    top = (innerHeight - height) / 2 - 20;
-  }
-
-  left = Math.max(8, Math.min(left, innerWidth - width - 8));
-  top = Math.max(8, Math.min(top, innerHeight - height - 8));
-
   win.style.position = "fixed";
-  win.style.left = left + "px";
-  win.style.top = top + "px";
+
+  placeNearAppCenter(win);
   bringToFront(win);
   playSound("ask-permission");
-  dlog("permission requested:", summary);
+  dlog("permission: shown ->", summary);
+
+  // Verify it actually became visible on screen; log if something hid it.
+  requestAnimationFrame(() => {
+    const rect = win.getBoundingClientRect();
+    const visible = getComputedStyle(win).display !== "none" &&
+      win.offsetParent !== null &&
+      rect.width > 0 && rect.height > 0 &&
+      rect.right > 0 && rect.bottom > 0 &&
+      rect.left < innerWidth && rect.top < innerHeight;
+
+    if (!visible) {
+      dlog("permission: FAILED to become visible (display/size/offscreen)", {
+        display: getComputedStyle(win).display,
+        w: Math.round(rect.width), h: Math.round(rect.height),
+        left: Math.round(rect.left), top: Math.round(rect.top),
+      });
+    }
+  });
 }
 
 //
 // Accept the current prompt: hide it and run the accept handler.
 //
 function accept() {
+  dlog("permission: accepted");
   hide();
   onAccept();
 }
@@ -91,6 +92,7 @@ function accept() {
 // Reject the current prompt: hide it and run the reject handler.
 //
 function reject() {
+  dlog("permission: rejected");
   hide();
   onReject();
 }

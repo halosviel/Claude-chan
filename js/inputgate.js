@@ -8,7 +8,21 @@
 // ===========================================================================
 
 import { getEditorState, enterTyping, cancelTyping } from "./editor.js";
-import { cancelThinking, cancelResponding, advanceReply } from "./chat.js";
+import { cancelThinking, cancelResponding, advanceReply, backReply } from "./chat.js";
+
+//
+// True when a form control (a slider, text field, etc.) has focus, so the
+// visual-novel nav keys don't hijack typing/adjusting in other windows.
+//
+function isFormFocused() {
+  const element = document.activeElement;
+
+  if (!element) {
+    return false;
+  }
+
+  return element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.isContentEditable;
+}
 
 //
 // Handle Esc per state: thinking -> abort, responding -> stop, typing -> cancel.
@@ -38,15 +52,27 @@ export function initInputGate() {
       return;
     }
 
-    // Space / Enter advance her reply (skip typing or go to the next page).
-    if ((event.key === " " || event.key === "Enter") && getEditorState() === "responding") {
-      event.preventDefault();
-      advanceReply();
-      return;
+    const state = getEditorState();
+
+    // Visual-novel navigation while she's replying or her reply sits finished:
+    // Enter / Space / Right go forward, Left goes back. (Not while typing or
+    // thinking, and not when a form control is focused.)
+    if ((state === "responding" || state === "idle") && !isFormFocused()) {
+      const forward = event.key === " " || event.key === "Enter" || event.key === "ArrowRight";
+
+      if (forward && advanceReply()) {
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key === "ArrowLeft" && backReply()) {
+        event.preventDefault();
+        return;
+      }
     }
 
     // "/" starts typing whenever she's idle (no hover requirement).
-    if (event.key === "/" && getEditorState() === "idle") {
+    if (event.key === "/" && state === "idle") {
       event.preventDefault();
       enterTyping();
     }

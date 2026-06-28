@@ -8,7 +8,9 @@
 // ===========================================================================
 
 const KEY = "claudechan.settings";
-const DEFAULTS = { master: 100, voice: 60, sfx: 100, voiceId: "" };
+// All sliders run 0-200% with 100% as the neutral default. typeSpeed is a speed
+// percent (100% = baseline pace); getTypeMs() maps it to ms-per-character.
+const DEFAULTS = { master: 100, voice: 100, sfx: 100, voiceId: "", typeSpeed: 100 };
 
 let settings = load();
 const listeners = [];
@@ -63,6 +65,14 @@ export function getSfxLevel() {
 
 export function getVoiceId() {
   return settings.voiceId;
+}
+
+// Milliseconds between typed characters, from the typeSpeed percent: 100% is the
+// ~18ms baseline, 200% is instant, 0% is ~36ms (slow).
+export function getTypeMs() {
+  const speed = Math.max(0, Math.min(200, settings.typeSpeed));
+
+  return Math.max(0, Math.round(18 * (2 - speed / 100)));
 }
 
 //

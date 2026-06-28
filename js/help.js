@@ -6,7 +6,7 @@
 // ===========================================================================
 
 import { qs } from "./util/dom.js";
-import { showWindowCentered, hideWindow } from "./windowing.js";
+import { showWindowBeside, hideWindow } from "./windowing.js";
 
 //
 // True when the help popup is currently open.
@@ -30,7 +30,7 @@ export function initHelp() {
     if (isOpen(win)) {
       hideWindow(win, "min");
     } else {
-      showWindowCentered(win);
+      showWindowBeside(win);
     }
   });
 }

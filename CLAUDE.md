@@ -126,9 +126,10 @@ re-download them on next start. They sit unused since the app uses Runa.
 
 ## Customization
 
-- **Personality**: `personality.txt` (repo root) is read **live every turn** by
-  `read_personality()` and appended to the system prompt. The user edits it
-  freely to shape Claude-chan; blank = default behavior. No restart needed.
+- **Personality**: her persona, style, and the reply format all live in one
+  place — `SYSTEM_PROMPT` in `app/config.py`. (The old live `personality.txt`
+  was merged in; that file is no longer read.) Editing the prompt needs a server
+  restart: `systemctl --user restart claudechan.service`.
 - **Volume**: master scale is `SOUND_SCALE` in `js/util/sound.js`; the voice's
   own level is `VOICE_VOLUME` in `js/voice.js`. There is no in-app volume
   control (the old dropdown/mute button were removed).

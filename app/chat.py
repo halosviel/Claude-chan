@@ -2,13 +2,13 @@
 #  chat.py
 #
 #  The "no API key" chat: shells out to the claude CLI with the system prompt
-#  and the user's live personality file, keeping conversation context across a
-#  session, then parses the reply into (emotion, english_text, japanese_speech,
+#  (which holds her persona + reply format), keeping conversation context across
+#  a session, then parses the reply into (emotion, english_text, japanese_speech,
 #  permission). The CLI does the talking; this module shapes it.
 # ===========================================================================
 
 import json
-import os
+import re
 import subprocess
 import time
 
@@ -20,27 +20,19 @@ from . import logbuf
 # resume it), so the claude CLI keeps context across messages.
 _state = {"started": False}
 
-
-# Read personality.txt next to the project root live each turn, so the user can
-# reshape Claude-chan without restarting. Missing/empty returns "".
-def read_personality():
-    try:
-        with open(os.path.join(config.ROOT, "personality.txt"), encoding="utf-8") as handle:
-            return handle.read().strip()
-    except OSError:
-        return ""
+# Substrings (lower-cased) in a CLI error that mean the account is out of credits
+# -- distinct from a transient rate limit, which we don't treat as "no credits".
+CREDIT_TERMS = ("credit balance", "credit", "billing", "insufficient", "quota",
+                "balance is too low", "payment required")
 
 
-# Run the claude CLI for one turn and return the parsed reply tuple. Falls back
-# to an in-character message on timeout, a missing CLI, or a non-zero exit.
+# Run the claude CLI for one turn and return the parsed reply tuple plus an
+# out_of_credits flag: (emotion, segments, permission, action, out_of_credits).
+# Falls back to an in-character message on timeout, a missing CLI, or a non-zero
+# exit (which may itself be an out-of-credits failure).
 def run_claude(prompt, model=None):
     model = model if model in config.ALLOWED_MODELS else config.DEFAULT_MODEL
     system = config.SYSTEM_PROMPT
-    personality = read_personality()
-
-    if personality:
-        system += ("\n\n--- Personality (from personality.txt; adopt this as "
-                   "who you are) ---\n" + personality)
 
     if config.CLAUDE_TOOLS:
         system += (
@@ -51,8 +43,25 @@ def run_claude(prompt, model=None):
             "-- read and search files, edit or write files, look things up on the "
             "web. Don't just describe what you'd do; do it. After using tools, "
             "still reply in the required format (mood tag, English answer, then "
-            "the ###JP### line)."
+            "the ###JP### line).\n"
+            "When the user pastes an IMAGE, their message includes its file path; "
+            "use your Read tool on that path to actually look at the image before "
+            "you respond."
         )
+
+    system += (
+        "\n\n--- Asking permission (###PERM###) ---\n"
+        "When the user asks you to DO something concrete and worth confirming "
+        "first (an action that changes things, not just answering a question), "
+        "say what you're about to do in your English reply, then make the VERY "
+        "LAST line of the whole reply:\n"
+        "'" + config.PERM_MARKER + " <a short, plain summary of exactly what "
+        "you'll do>'.\n"
+        "The app then shows the user a Yes/No prompt and only proceeds if they "
+        "accept. Use at most ONE action line per reply, and never combine "
+        + config.PERM_MARKER + " with " + config.BG_MARKER + "/"
+        + config.MEM_MARKER + "."
+    )
 
     backgrounds = images.list_backgrounds()
 
@@ -95,10 +104,10 @@ def run_claude(prompt, model=None):
                               cwd=config.CLAUDE_CWD, timeout=180)
     except subprocess.TimeoutExpired:
         logbuf.add("chat: claude TIMED OUT after 180s")
-        return "thinking", [{"text": "sorry, i got stuck thinking for too long there...", "speech": ""}], "", None
+        return "idle", [{"text": "sorry, i got stuck thinking for too long there...", "speech": ""}], "", None, False
     except FileNotFoundError:
         logbuf.add("chat: claude CLI not found on PATH")
-        return "sad", [{"text": "i can't find the claude CLI -- is it installed and on your PATH?", "speech": ""}], "", None
+        return "sad", [{"text": "i can't find the claude CLI -- is it installed and on your PATH?", "speech": ""}], "", None, False
 
     _state["started"] = True
     elapsed = int((time.monotonic() - started) * 1000)
@@ -106,7 +115,17 @@ def run_claude(prompt, model=None):
     if proc.returncode != 0:
         err = (proc.stderr or proc.stdout or "").strip()[-400:]
         logbuf.add("chat: claude FAILED (exit %d, %dms): %s" % (proc.returncode, elapsed, err))
-        return "thinking", [{"text": "hmm, something went sideways on my end...\n" + err, "speech": ""}], "", None
+
+        # Out of credits is its own case: she says so and the app pops a notice.
+        if any(term in err.lower() for term in CREDIT_TERMS):
+            logbuf.add("chat: detected OUT OF CREDITS")
+            return ("sad",
+                    [{"text": "ah... i've run out of credits, so i can't reply right now. sorry!",
+                      "speech": "ごめんね、クレジットがなくなっちゃって、いまおはなしできないの。",
+                      "emotion": "sad"}],
+                    "", None, True)
+
+        return "idle", [{"text": "hmm, something went sideways on my end...\n" + err, "speech": ""}], "", None, False
 
     text = proc.stdout.strip()
     turns = None
@@ -122,39 +141,52 @@ def run_claude(prompt, model=None):
 
     logbuf.add("chat: claude ok (%dms, turns=%s, cost=%s)" % (elapsed, turns, cost))
 
-    return parse(text)
+    return (*parse(text), False)
+
+
+# Pull a leading [mood] tag off a page of text, returning (mood_or_default,
+# remaining_text). A page with no leading tag keeps the mood it was given.
+def _lead_mood(text, default):
+    match = config.TAG_RE.match(text)
+
+    if match and match.group(1).lower() in config.EMOTIONS:
+        return match.group(1).lower(), text[match.end():].lstrip()
+
+    return default, text
 
 
 # Split a raw reply into (emotion, segments, permission, action). Pulls the
 # leading [mood] tag and any action line (###BG###/###MEM### or ###PERM###), then
-# breaks the rest into PAGES at each ###JP### line. `segments` is a list of
-# {"text": english, "speech": japanese}; `action` is a dict or None.
+# breaks the rest into PAGES at each ###JP### line. Each page may begin with its
+# own [mood] tag to shift her expression mid-reply; otherwise it inherits the
+# current one. `segments` is a list of {"text", "speech", "emotion"}; `action` is
+# a dict or None; `emotion` (first return) is the reply's opening mood.
 def parse(text):
-    emotion = "talking"
-    match = config.TAG_RE.match(text)
-
-    if match:
-        emotion = match.group(1).lower()
-        text = text[match.end():].strip()
-
-    if emotion not in config.EMOTIONS:
-        emotion = "talking"
+    emotion, text = _lead_mood(text, "talking")
+    text = text.strip()
 
     action = None
-
-    for marker, kind in ((config.BG_MARKER, "background"), (config.MEM_MARKER, "memory")):
-        if marker in text:
-            text, value = text.split(marker, 1)
-            action = {"type": kind, "value": value.strip()}
-            text = text.strip()
-            break
-
     permission = ""
 
-    if config.PERM_MARKER in text:
-        text, perm = text.split(config.PERM_MARKER, 1)
-        permission = perm.strip()
-        text = text.strip()
+    # Markers are honoured ONLY at the start of a line (that's how she emits them).
+    # So when she MENTIONS one mid-sentence -- e.g. explaining how the app works --
+    # it stays as plain text and doesn't cut her message off or fire an action.
+    def line_marker(marker):
+        return re.compile(r"(?m)^[ \t]*" + re.escape(marker) + r"[ \t]*(.*)$")
+
+    for marker, kind in ((config.BG_MARKER, "background"), (config.MEM_MARKER, "memory")):
+        match = line_marker(marker).search(text)
+
+        if match:
+            action = {"type": kind, "value": match.group(1).strip()}
+            text = (text[:match.start()] + text[match.end():]).strip()
+            break
+
+    perm_match = line_marker(config.PERM_MARKER).search(text)
+
+    if perm_match:
+        permission = perm_match.group(1).strip()
+        text = (text[:perm_match.start()] + text[perm_match.end():]).strip()
 
     # an executable action always needs a confirm summary
     if action and not permission:
@@ -163,15 +195,19 @@ def parse(text):
         else:
             permission = "remember: " + action["value"]
 
-    # Split the remaining text into PAGES: each ###JP### line ends a page,
-    # yielding {text: the english before it, speech: that page's spoken
-    # japanese}. Leaked Japanese is stripped from each english page (line
-    # structure / indentation is preserved so code blocks survive).
+    # Split the remaining text into PAGES at each line-start ###JP### marker (also
+    # line-anchored, so a ###JP### mentioned in prose doesn't split the message).
+    # Leaked Japanese is stripped from each english page; line structure is kept.
     segments = []
-    chunks = text.split(config.JP_MARKER)
+    chunks = re.compile(r"(?m)^[ \t]*" + re.escape(config.JP_MARKER) + r"[ \t]?").split(text)
     english = chunks[0]
+    current = emotion
 
     for chunk in chunks[1:]:
+        # The spoken Japanese is the first non-empty line after the marker, so a
+        # reply that puts the kana on the line BELOW '###JP###' (a blank line right
+        # after the marker) still gets a voice instead of falling silent.
+        chunk = chunk.lstrip("\n")
         newline = chunk.find("\n")
 
         if newline == -1:
@@ -179,19 +215,21 @@ def parse(text):
         else:
             speech, rest = chunk[:newline].strip(), chunk[newline + 1:]
 
+        current, english = _lead_mood(english, current)
         page = config.CJK_RE.sub("", english).strip()
 
         if page or speech:
-            segments.append({"text": page, "speech": speech})
+            segments.append({"text": page, "speech": speech, "emotion": current})
 
         english = rest
 
+    current, english = _lead_mood(english, current)
     tail = config.CJK_RE.sub("", english).strip()
 
     if tail:
-        segments.append({"text": tail, "speech": ""})
+        segments.append({"text": tail, "speech": "", "emotion": current})
 
     if not segments:
-        segments = [{"text": config.CJK_RE.sub("", text).strip(), "speech": ""}]
+        segments = [{"text": config.CJK_RE.sub("", text).strip(), "speech": "", "emotion": emotion}]
 
     return emotion, segments, permission, action

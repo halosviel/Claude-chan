@@ -10,6 +10,7 @@
 import { qs, fetchJson } from "./util/dom.js";
 import { dlog } from "./log.js";
 import { t, onChange } from "./i18n.js";
+import { getAudioContext } from "./util/sound.js";
 import { getMaster, getVoiceLevel, getVoiceId } from "./settings.js";
 
 // Whether the server reported a working speech engine, and the clip currently
@@ -120,11 +121,44 @@ export function playPrepared(audio, options = {}) {
 
   stopAudio();
   currentAudio = audio;
-  audio.volume = getVoiceLevel() * getMaster();
+
+  // Route through a Web Audio gain node so her voice can exceed 100% (the bare
+  // <audio>.volume is capped at 1). Falls back to a clamped element volume if the
+  // context/source can't be set up.
+  const level = getVoiceLevel() * getMaster();
+
+  try {
+    const context = getAudioContext();
+
+    if (context.state === "suspended") {
+      context.resume();
+    }
+
+    if (!audio.gainNode) {
+      const source = context.createMediaElementSource(audio);
+
+      audio.gainNode = context.createGain();
+      source.connect(audio.gainNode).connect(context.destination);
+    }
+
+    audio.gainNode.gain.value = level;
+    audio.volume = 1;
+  } catch (error) {
+    audio.volume = Math.min(1, level);
+  }
+
   audio.addEventListener("ended", onEnd, { once: true });
   audio.addEventListener("error", onEnd, { once: true });
-  audio.play().catch((error) => {
-    dlog("audio.play() REJECTED:", error);
+  audio.play().then(() => {
+    // Watchdog: if it's still at 0s a moment later (and not deliberately muted),
+    // she isn't actually speaking even though we tried -- log it.
+    setTimeout(() => {
+      if (currentAudio === audio && !audio.ended && audio.currentTime === 0 && audio.volume > 0) {
+        dlog("voice: clip did not start playing (still 0s) -- she may be silent");
+      }
+    }, 500);
+  }).catch((error) => {
+    dlog("audio.play() REJECTED -- she did not speak:", error);
     onEnd();
   });
 }

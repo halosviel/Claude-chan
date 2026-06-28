@@ -14,6 +14,25 @@ const LOG_MAX = 500;
 const logBuffer = [];
 
 //
+// Pick a colour class for a log line: yellow for permission notices, red for
+// things that went wrong, white (default) otherwise. A permission line that also
+// failed counts as "went wrong" (red).
+//
+function lineColor(text) {
+  const t = text.toLowerCase();
+
+  if (t.includes("permission") && !t.includes("fail")) {
+    return "log-perm";
+  }
+
+  if (/error|fail|could ?n't|could not|not found|unavailable|timed out|exception|traceback|out of credits|not reachable|isn't running|cannot|can't find|rejected|didn't|did not/.test(t)) {
+    return "log-error";
+  }
+
+  return "";
+}
+
+//
 // Repaint the terminal window with the most-recent lines that fit, oldest at
 // the top, dropping any that overflow. Safe to call when no terminal exists.
 //
@@ -30,6 +49,7 @@ function renderTerminal() {
     const line = document.createElement("div");
 
     line.textContent = logBuffer[i];
+    line.className = lineColor(logBuffer[i]);
     termLog.appendChild(line);
 
     if (termLog.scrollHeight > termLog.clientHeight && termLog.children.length > 1) {

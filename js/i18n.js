@@ -26,6 +26,7 @@ const DICT = {
   en: {
     "speaker.you": "you",
     "hint.talk": "Press \"/\" to talk",
+    "hint.continue": "Click to continue",
     "placeholder.idle": "press  /  to chat",
     "placeholder.typing": "say something…",
     "win.terminal": "terminal",
@@ -39,6 +40,8 @@ const DICT = {
     "btn.start": "start",
     "help.chat": "Press <kbd>/</kbd> to chat with Claude-chan",
     "help.cancel": "Press <kbd>Esc</kbd> to cancel prompt",
+    "help.next": "Press <kbd>Space</kbd> / <kbd>→</kbd> or click to go forward",
+    "help.prev": "Press <kbd>←</kbd> or right-click to go back",
     "memory.heading": "Memory",
     "memory.intro": "Claude-chan's memories live here.<br>If you want to alter Claude-chan's memories, simply tell her!",
     "transcript.start": "Session started",
@@ -52,6 +55,7 @@ const DICT = {
   ja: {
     "speaker.you": "あなた",
     "hint.talk": "「/」キーで話す",
+    "hint.continue": "クリックで続行",
     "placeholder.idle": "「/」キーでチャット",
     "placeholder.typing": "なにか話しかけて…",
     "win.terminal": "ターミナル",
@@ -65,6 +69,8 @@ const DICT = {
     "btn.start": "スタート",
     "help.chat": "<kbd>/</kbd> キーで Claude-chan と話す",
     "help.cancel": "<kbd>Esc</kbd> キーでキャンセル",
+    "help.next": "<kbd>Space</kbd> / <kbd>→</kbd> またはクリックで進む",
+    "help.prev": "<kbd>←</kbd> または右クリックで戻る",
     "memory.heading": "メモリー",
     "memory.intro": "Claude-chan の記憶はここに。<br>記憶を変えたいときは、彼女に話しかけてね！",
     "transcript.start": "セッション開始",

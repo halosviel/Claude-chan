@@ -30,7 +30,7 @@ function buildSlider(key, label) {
 
   slider.type = "range";
   slider.min = "0";
-  slider.max = "100";
+  slider.max = "200";
   slider.value = String(settings[key]);
   slider.className = "settings-slider";
   slider.addEventListener("input", () => {
@@ -116,6 +116,7 @@ function render(body) {
   body.appendChild(buildSlider("master", "Master volume"));
   body.appendChild(buildSlider("voice", "Voice volume"));
   body.appendChild(buildSlider("sfx", "SFX volume"));
+  body.appendChild(buildSlider("typeSpeed", "Typing speed"));
   buildVoiceList(body);
 }
 

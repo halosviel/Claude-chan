@@ -15,10 +15,11 @@
 //  its own undo/redo (the browser's is wiped by re-rendering each keystroke).
 // ===========================================================================
 
-import { qs, getCaretOffset, setCaretOffset } from "./util/dom.js";
+import { qs, fetchJson, getCaretOffset, setCaretOffset } from "./util/dom.js";
 import { buildHtml, htmlToMarkdown } from "./markdown.js";
 import { t, onChange } from "./i18n.js";
 import { playKey } from "./util/sound.js";
+import { clearThinkTimer } from "./thinktimer.js";
 
 // Keys that don't make a typing sound (they don't "type" anything on their own).
 const SILENT_KEYS = new Set(["Shift", "Control", "Alt", "Meta"]);
@@ -35,6 +36,28 @@ function setHint(show) {
   if (hintEl) {
     hintEl.classList.toggle("visible", show);
   }
+}
+
+//
+// Repurpose the dialogue hint as a click-to-continue page counter while she
+// replies ("Click to continue (1/3)"). On the last (or only) page there's
+// nothing to click to, so the label is hidden.
+//
+export function setHintProgress(current, total) {
+  if (!hintEl) {
+    return;
+  }
+
+  // On the last (or only) page there's nothing to click to, so fall back to the
+  // "Press / to talk" prompt rather than a "Click to continue" counter.
+  if (current >= total) {
+    hintEl.textContent = t("hint.talk");
+    hintEl.classList.add("visible");
+    return;
+  }
+
+  hintEl.textContent = t("hint.continue") + " (" + current + "/" + total + ")";
+  hintEl.classList.add("visible");
 }
 
 // Which placeholder/speaker to show, so they can be re-applied on a language
@@ -56,6 +79,14 @@ let onSubmit = () => {};
 let history = [{ text: "", caret: 0 }];
 let histIndex = 0;
 let lastEditAt = 0;
+
+// A paste larger than either limit (or an image) collapses to a compact "[…]"
+// placeholder chip; the full text is restored when the message is sent.
+const PASTE_LINE_LIMIT = 6;
+const PASTE_CHAR_LIMIT = 800;
+let pastedChunks = []; // { token, text } pairs to expand back on submit
+let pasteSeq = 0;
+let imageSeq = 0;
 
 //
 // The raw text content of the box (markdown source, identical to what's typed).
@@ -113,7 +144,7 @@ function setEditable(editable) {
 // caret offsets are unaffected.
 //
 function setHtml(text) {
-  editor.innerHTML = buildHtml(text) + (text.endsWith("\n") ? "<br>" : "");
+  editor.innerHTML = buildHtml(text, false) + (text.endsWith("\n") ? "<br>" : "");
 }
 
 //
@@ -146,6 +177,18 @@ function insertText(str) {
 }
 
 //
+// Scroll the box so the caret stays in view while typing, so a new line added
+// past the box's ~3-line scroll cap isn't left hidden below the fold.
+//
+function keepCaretVisible() {
+  const offset = getCaretOffset(editor);
+
+  if (offset != null && offset >= editorText().length) {
+    editor.scrollTop = editor.scrollHeight;
+  }
+}
+
+//
 // Reset the undo history to a single empty state.
 //
 function resetHistory() {
@@ -155,11 +198,110 @@ function resetHistory() {
 }
 
 //
-// Empty the box and reset its history.
+// Forget any stored large pastes (a fresh prompt starts clean).
+//
+function resetPaste() {
+  pastedChunks = [];
+  pasteSeq = 0;
+  imageSeq = 0;
+}
+
+//
+// Pull the first image File out of a paste's clipboard data, or null.
+//
+function pastedImageFile(files, items) {
+  if (files) {
+    const file = Array.from(files).find((entry) => entry.type.startsWith("image/"));
+
+    if (file) {
+      return file;
+    }
+  }
+
+  if (items) {
+    const item = Array.from(items).find((entry) => entry.kind === "file" && entry.type.startsWith("image/"));
+
+    if (item) {
+      return item.getAsFile();
+    }
+  }
+
+  return null;
+}
+
+//
+// Upload an image File, then insert an "[Image #n]" chip that expands on submit
+// to its saved path (so she views it with her Read tool). Falls back to a plain
+// "[picture]" chip if the upload fails.
+//
+async function attachImageFile(file) {
+  try {
+    const data = await fetchJson("/paste-image", {
+      method: "POST",
+      headers: { "Content-Type": file.type || "image/png" },
+      body: file,
+    });
+
+    imageSeq += 1;
+
+    const token = "[Image #" + imageSeq + "]";
+    const expansion = "(attached image #" + imageSeq +
+      " -- view it with your Read tool at: " + data.path + ")";
+
+    pastedChunks.push({ token, text: expansion });
+    insertPlaceholder(token);
+  } catch (error) {
+    insertPlaceholder("[picture]");
+  }
+}
+
+//
+// Attach a list of dropped/pasted files: images upload and become viewable, any
+// other file (video, etc.) gets a tidy placeholder chip (the text chat can't
+// forward it).
+//
+async function attachFiles(files) {
+  for (const file of Array.from(files)) {
+    if (file.type.startsWith("image/")) {
+      await attachImageFile(file);
+    } else {
+      const kind = file.type.startsWith("video/") ? "video" : "attachment";
+
+      insertPlaceholder("[" + kind + ": " + file.name + "]");
+    }
+  }
+}
+
+//
+// Restore collapsed large-paste placeholders to their full text, so the message
+// the model receives contains what was actually pasted.
+//
+function expandPaste(text) {
+  let out = text;
+
+  for (const chunk of pastedChunks) {
+    out = out.split(chunk.token).join(chunk.text);
+  }
+
+  return out;
+}
+
+//
+// Insert a placeholder chip (a large paste or an attachment) at the caret.
+//
+function insertPlaceholder(token) {
+  insertText(token);
+  recordChange(false);
+  keepCaretVisible();
+}
+
+//
+// Empty the box and reset its history (and any stored pastes).
 //
 export function clearEditor() {
   editor.innerHTML = "";
   resetHistory();
+  resetPaste();
 }
 
 //
@@ -258,6 +400,8 @@ export function enterTyping(initialText = "") {
   setEditable(true);
   setHtml(initialText);
   resetHistory();
+  resetPaste();
+  clearThinkTimer();
 
   if (initialText) {
     recordChange(false);
@@ -317,6 +461,11 @@ export function finishReply() {
   state = "idle";
   setEditable(false);
   setPlaceholder("placeholder.idle");
+
+  if (hintEl) {
+    hintEl.textContent = t("hint.talk");
+  }
+
   setHint(true);
 }
 
@@ -347,6 +496,7 @@ export function initEditor(options = {}) {
 
     render(true);
     recordChange(true);
+    keepCaretVisible();
   });
 
   editor.addEventListener("compositionstart", () => {
@@ -364,12 +514,22 @@ export function initEditor(options = {}) {
       return;
     }
 
-    // No sound for a delete that has nothing to delete (empty box), or for bare
-    // modifier keys.
     const isDelete = event.key === "Backspace" || event.key === "Delete";
     const emptyDelete = isDelete && editorText().length === 0;
 
-    if (!SILENT_KEYS.has(event.key) && !emptyDelete) {
+    // Where the caret sits before this key acts, so we can tell when a key can't
+    // actually do anything.
+    const caret = getCaretOffset(editor);
+    const length = editorText().length;
+    const atStart = caret != null && caret <= 0;
+    const atEnd = caret != null && caret >= length;
+    const goingBack = event.key === "ArrowLeft" || event.key === "ArrowUp";
+    const goingForward = event.key === "ArrowRight" || event.key === "ArrowDown";
+    const stuckAtEdge = (goingBack && atStart) || (goingForward && atEnd);
+
+    // No sound for: bare modifier keys, a delete with nothing to delete, or an
+    // arrow key that's already at the start/end and so won't move.
+    if (!SILENT_KEYS.has(event.key) && !emptyDelete && !stuckAtEdge) {
       playKey();
     }
 
@@ -387,10 +547,20 @@ export function initEditor(options = {}) {
       return;
     }
 
+    // Tab indents in the box (handy inside code) instead of moving focus out to
+    // the page's buttons.
+    if (event.key === "Tab" && !mod) {
+      event.preventDefault();
+      insertText("\t");
+      recordChange(false);
+      keepCaretVisible();
+      return;
+    }
+
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !isComposing) {
       event.preventDefault();
 
-      const message = editorText().trim();
+      const message = expandPaste(editorText()).trim();
 
       if (message) {
         onSubmit(message);
@@ -403,10 +573,11 @@ export function initEditor(options = {}) {
       event.preventDefault();
       insertText("\n");
       recordChange(false);
+      keepCaretVisible();
     }
   });
 
-  editor.addEventListener("paste", (event) => {
+  editor.addEventListener("paste", async (event) => {
     if (state !== "typing") {
       return;
     }
@@ -414,6 +585,16 @@ export function initEditor(options = {}) {
     event.preventDefault();
 
     const clipboard = event.clipboardData || window.clipboardData;
+
+    // A pasted image is uploaded to the server, shown as an "[Image #n]" chip,
+    // and on submit expanded to its saved path so she views it with her Read tool.
+    const image = pastedImageFile(clipboard && clipboard.files, clipboard && clipboard.items);
+
+    if (image) {
+      await attachImageFile(image);
+      return;
+    }
+
     let text = clipboard ? clipboard.getData("text/plain") : "";
     const html = clipboard ? clipboard.getData("text/html") : "";
 
@@ -425,9 +606,109 @@ export function initEditor(options = {}) {
       }
     }
 
-    if (text) {
-      insertText(text);
-      recordChange(false);
+    if (!text) {
+      return;
     }
+
+    // Collapse a big paste to a "[pasted text #n, N lines]" chip; the full text
+    // is restored on submit (see expandPaste).
+    const lineCount = text.split("\n").length;
+
+    if (lineCount >= PASTE_LINE_LIMIT || text.length > PASTE_CHAR_LIMIT) {
+      pasteSeq += 1;
+
+      const token = "[pasted text #" + pasteSeq + ", " + lineCount +
+        (lineCount === 1 ? " line]" : " lines]");
+
+      pastedChunks.push({ token, text });
+      insertPlaceholder(token);
+      return;
+    }
+
+    insertText(text);
+    recordChange(false);
+    keepCaretVisible();
   });
+
+  // Drag-and-drop files onto the whole Claude-chan scene (alongside paste). A
+  // file drag lights up the scene; dropping attaches images (and chips other
+  // files). The zone is the portrait/background region, not just the box.
+  const zone = qs(".vn-center");
+
+  if (zone) {
+    const isFileDrag = (event) =>
+      event.dataTransfer && Array.from(event.dataTransfer.types || []).includes("Files");
+
+    const clearDrag = () => zone.classList.remove("drag-over");
+
+    zone.addEventListener("dragenter", (event) => {
+      if (isFileDrag(event)) {
+        event.preventDefault();
+        zone.classList.add("drag-over");
+      }
+    });
+
+    zone.addEventListener("dragover", (event) => {
+      if (isFileDrag(event)) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        zone.classList.add("drag-over");
+      }
+    });
+
+    // Clear the highlight only once the cursor actually leaves the zone's bounds
+    // (a plain dragleave fires when moving over children too, which would flicker
+    // or leave the overlay stuck).
+    zone.addEventListener("dragleave", (event) => {
+      if (!isFileDrag(event)) {
+        return;
+      }
+
+      const rect = zone.getBoundingClientRect();
+
+      if (event.clientX <= rect.left || event.clientX >= rect.right ||
+          event.clientY <= rect.top || event.clientY >= rect.bottom) {
+        clearDrag();
+      }
+    });
+
+    zone.addEventListener("drop", async (event) => {
+      if (!isFileDrag(event)) {
+        return;
+      }
+
+      event.preventDefault();
+      clearDrag();
+
+      if (state === "idle") {
+        enterTyping();
+      }
+
+      if (state !== "typing") {
+        return;
+      }
+
+      const files = event.dataTransfer.files;
+
+      if (files && files.length) {
+        await attachFiles(files);
+      }
+    });
+
+    // Dropping a file anywhere on the page shouldn't navigate to it; also a
+    // belt-and-braces clear of the highlight.
+    window.addEventListener("dragover", (event) => {
+      if (isFileDrag(event)) {
+        event.preventDefault();
+      }
+    });
+
+    window.addEventListener("drop", (event) => {
+      if (isFileDrag(event)) {
+        event.preventDefault();
+      }
+
+      clearDrag();
+    });
+  }
 }

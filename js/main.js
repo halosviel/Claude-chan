@@ -7,7 +7,7 @@
 //  through its imports.
 // ===========================================================================
 
-import { PRIMARY_COLOR, SECONDARY_COLOR } from "./config.js";
+import { PRIMARY_COLOR, SECONDARY_COLOR, HOVER_COLOR } from "./config.js";
 import { initTerminal } from "./log.js";
 import { initServerLog } from "./serverlog.js";
 import { initI18n } from "./i18n.js";
@@ -20,6 +20,7 @@ import { initVoice } from "./voice.js";
 import { initBackgrounds } from "./backgrounds.js";
 import { setEmotion } from "./avatar.js";
 import { initPermission } from "./permission.js";
+import { initCredits } from "./credits.js";
 import { initEditor } from "./editor.js";
 import { initTranscript } from "./transcript.js";
 import { initHelp } from "./help.js";
@@ -37,6 +38,7 @@ function main() {
 
   root.setProperty("--primary", PRIMARY_COLOR);
   root.setProperty("--secondary", SECONDARY_COLOR);
+  root.setProperty("--hover", HOVER_COLOR);
 
   initTerminal();
   initServerLog();
@@ -49,6 +51,7 @@ function main() {
   initVoice();
   initBackgrounds();
   initPermission();
+  initCredits();
   initEditor({ onSubmit: sendMessage });
   initReplyClick();
   initTranscript();
@@ -56,7 +59,7 @@ function main() {
   initMemory();
   initSettings();
   initInputGate();
-  setEmotion("happy");
+  setEmotion("idle");
 }
 
 main();

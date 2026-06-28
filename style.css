@@ -20,6 +20,7 @@
   --panel: #fffaf2;        /* near-white panel fill */
   --orange: #e8893a;       /* box outlines + accents */
   --orange-soft: #f4b878;  /* hard pixel-shadow tint */
+  --outline: #9c5620;      /* darker window border, so overlapping bars show a seam */
   --primary: #e8893a;      /* set from config.js: topbars, taskbar, headers */
   --secondary: #f4a85f;    /* set from config.js: selections + your messages */
   --text: #4a3a2a;
@@ -54,7 +55,7 @@ body {
   top: 22px;
   left: 0;
   right: 0;
-  z-index: 1;
+  z-index: -1;
   text-align: center;
   margin: 0;
   font-family: "Sacramento", var(--font-primary);
@@ -87,7 +88,7 @@ body.has-fullscreen .title { display: none; }
   width: 440px;
   height: 640px;          /* taller default (~200px longer) */
   background: var(--panel);
-  border: 2px solid var(--orange);
+  border: 2px solid var(--outline);
   box-shadow: 4px 4px 0 var(--orange-soft);
 }
 
@@ -263,7 +264,7 @@ body.lang-ja .vn-panel-en { display: none; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.pick-list button:hover { background: #ffe6cc; }
+.pick-list button:hover { background: var(--hover, #ffe6cc); }
 .pick-list button.selected {
   background: var(--secondary);
   color: #fff;
@@ -339,6 +340,29 @@ body.lang-ja .vn-panel-en { display: none; }
   border-radius: 5px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
 }
+/* dragging a file over the scene: a soft tint + a dashed "drop to attach"
+   overlay across the whole Claude-chan background region */
+.vn-center.drag-over::after {
+  content: "drop to attach";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 14, 9, .18);
+  border: 2px dashed var(--primary);
+  border-radius: 4px;
+  color: #ffe7c4;
+  font-family: var(--font-primary);
+  font-size: 1rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, .8);
+  pointer-events: none;
+  z-index: 10;
+  animation: drop-pulse .9s ease-in-out infinite;
+}
+@keyframes drop-pulse { 50% { border-color: #ffe7c4; } }
 /* "Press / to talk" hint, top-right of the dialogue box; shown after a reply */
 .dialogue-hint {
   position: absolute;
@@ -368,6 +392,20 @@ body.lang-ja .vn-panel-en { display: none; }
 .dialogue-continue.visible { opacity: .9; animation: dlg-bob .9s ease-in-out infinite; }
 @keyframes dlg-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 
+/* "how long she's taking" counter, bottom-left of the dialogue box */
+.dialogue-timer {
+  position: absolute;
+  bottom: 4px;
+  left: 13px;
+  font-family: var(--font-sub);
+  font-size: 0.62rem;
+  color: #ffe0bb;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, .7);
+}
+.dialogue-timer.visible { opacity: .7; }
+
 /* the speaker name tag ("you" / "Claude-chan") above the text */
 .speaker {
   display: inline-block;
@@ -379,10 +417,10 @@ body.lang-ja .vn-panel-en { display: none; }
   text-shadow: 1px 1px 2px rgba(0, 0, 0, .7);
 }
 /* markdown composer/reply surface: transparent over the dark dialogue box, with
-   light text. Grows to ~4 lines while typing, then scrolls. */
+   light text. Starts at 2 lines, grows 2 more (to 4) while typing, then scrolls. */
 .md-editor {
   width: 100%;
-  min-height: 1.5em;
+  min-height: calc(3em + 2px);
   max-height: calc(6em + 4px);
   overflow-y: auto;
   padding: 1px 0;
@@ -427,9 +465,8 @@ body.lang-ja .vn-panel-en { display: none; }
 
 /* live markdown styling inside the composer (the syntax markers stay, dimmed) */
 .md-mark { opacity: .4; }
-/* the ``` fence lines stay in the text model (so they can be edited/deleted) but
-   are not drawn — the code block reads as empty until you type code into it. The
-   caret never lands inside them (setCaretOffset snaps past hidden runs). */
+/* fence lines are never drawn: the composer doesn't make code blocks at all, and
+   her replies / the backlog render the block without showing the ``` lines. */
 .md-fence { display: none; }
 /* the pixel input font draws "`" like a dash; backticks use a real monospace */
 .md-tick, .md-code-inline {
@@ -457,7 +494,7 @@ body.lang-ja .vn-panel-en { display: none; }
   font-family: "JetBrainsMono Nerd Font", "FiraCode Nerd Font", ui-monospace, monospace;
   font-size: 0.88em;
   line-height: 1.45;
-  background: rgba(140, 112, 90, .28);
+  background: rgba(20, 14, 9, .58);
   color: #ffe7c4;
   border-radius: 4px;
 }
@@ -507,7 +544,8 @@ body.lang-ja .vn-panel-en { display: none; }
 }
 
 /* ---- terminal app ---- */
-#win-terminal { width: 350px; height: 550px; }
+/* order:-1 tiles it to the LEFT of the app in the centered flow */
+#win-terminal { width: 700px; height: 450px; order: -1; }
 .term-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -521,10 +559,13 @@ body.lang-ja .vn-panel-en { display: none; }
   font-family: var(--font-sub);
   font-size: 0.8rem;
   line-height: 1.4;
-  color: #ffcf8a;
+  color: #f3f3f3;
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* terminal line colours: red = something went wrong, yellow = permission */
+.term-log .log-error { color: #ff7b6b; }
+.term-log .log-perm { color: #ffd24a; }
 .term-log div { padding: 1px 0; }
 
 /* ---- taskbar (always above everything, even fullscreen windows) ---- */
@@ -661,7 +702,7 @@ body.lang-ja .vn-panel-en { display: none; }
 
 /* ---- settings popup ---- */
 #win-settings { width: 360px; height: auto; }
-.settings-body { flex: 0 0 auto; padding: 14px 16px; overflow-y: auto; max-height: 70vh; }
+.settings-body { flex: 1 1 auto; min-height: 0; padding: 14px 16px; overflow-y: auto; }
 .settings-row { margin-bottom: 14px; }
 .settings-head {
   display: flex;
@@ -698,7 +739,7 @@ body.lang-ja .vn-panel-en { display: none; }
   cursor: pointer;
   padding: 2px 4px;
 }
-.voice-option:hover { background: #ffe6cc; }
+.voice-option:hover { background: var(--hover, #ffe6cc); }
 .voice-option input { accent-color: var(--primary); cursor: pointer; }
 
 /* ---- help popup ---- */
@@ -860,3 +901,25 @@ body.lang-ja .vn-panel-en { display: none; }
 }
 .perm-buttons button:hover { background: #ffe6cc; }
 #perm-yes { font-weight: bold; }
+
+/* ---- out-of-credits notice ---- */
+.credits-window { position: fixed; width: min(92vw, 360px); height: auto; z-index: 60; animation: win-open .16s ease; }
+.credits-body { padding: 14px; }
+#credits-window p {
+  margin: 0 0 14px;
+  font-family: var(--font-primary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.credits-buttons { display: flex; justify-content: flex-end; }
+.credits-buttons button {
+  font-family: var(--font-primary);
+  font-size: 0.85rem;
+  font-weight: bold;
+  padding: 5px 18px;
+  border: 2px solid var(--orange);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+.credits-buttons button:hover { background: var(--hover, #ffe6cc); }

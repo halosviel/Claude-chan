@@ -153,7 +153,10 @@ export function initTranscript() {
       return;
     }
 
-    render(logEl);
+    // Show first, THEN render: the scroll-to-bottom in render() only works once
+    // the log has layout, so rendering while still display:none would leave a
+    // long backlog stuck at the top on first open.
     showWindow(winEl);
+    render(logEl);
   });
 }
