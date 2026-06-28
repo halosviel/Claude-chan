@@ -1,6 +1,7 @@
 # Claude_chan
 
 Claude-code as a dating sim in a virtual machine, fully vibe coded.
+**Warning:** Not fully developed yet. Will remove this warning when so.
 
 <p align="center">
     <img width="1827" height="959" alt="screenshot" src="https://github.com/user-attachments/assets/5110df1b-6ff5-4b01-aee9-044dbb37a169" />
