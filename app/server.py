@@ -229,6 +229,9 @@ def main():
     if os.environ.get("CLAUDECHAN_RELOAD") != "0":
         threading.Thread(target=_watch_and_restart, daemon=True).start()
 
+    # Pre-connect the warm chat session so the first reply skips the connect cost.
+    chat.warm_up()
+
     with httpd:
         print("Claude-chan running at  http://localhost:%d" % config.PORT)
         print("Press Ctrl+C to stop.")

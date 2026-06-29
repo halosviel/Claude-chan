@@ -20,6 +20,7 @@ import { buildHtml, htmlToMarkdown } from "./markdown.js";
 import { t, onChange } from "./i18n.js";
 import { playKey } from "./util/sound.js";
 import { clearThinkTimer } from "./thinktimer.js";
+import { cancelIdleReset } from "./idlereset.js";
 
 // Keys that don't make a typing sound (they don't "type" anything on their own).
 const SILENT_KEYS = new Set(["Shift", "Control", "Alt", "Meta"]);
@@ -395,6 +396,7 @@ export function enterTyping(initialText = "") {
     return false;
   }
 
+  cancelIdleReset();
   state = "typing";
   editor.classList.remove("response");
   setEditable(true);

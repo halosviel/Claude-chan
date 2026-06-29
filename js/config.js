@@ -41,3 +41,9 @@ export const HOVER_COLOR = "#e9b2b2";
 
 // dialogue box. Lower = faster (e.g. 18 is brisk, 40 is slow, 0 is instant).
 export const DIALOGUE_TYPE_MS = 18;
+
+// --- Auto-reset on inactivity ---------------------------------------------
+// How long (milliseconds) to wait with no interaction after Claude-chan's last
+// dialogue section before the box and her portrait reset to the fresh idle
+// state. 20000 = 20s; raise for more patience, lower to reset sooner.
+export const IDLE_RESET_MS = 10000;

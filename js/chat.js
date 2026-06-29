@@ -27,9 +27,11 @@ import { showCredits } from "./credits.js";
 import { startThinkTimer, clearThinkTimer } from "./thinktimer.js";
 import { runAction } from "./actions.js";
 import { recordUser, recordClaude, popTurn } from "./transcript.js";
+import { initIdleReset, armIdleReset, cancelIdleReset } from "./idlereset.js";
 import {
   getEditorElement,
   getEditorState,
+  clearEditor,
   beginThinking,
   markReplyMode,
   finishReply,
@@ -130,6 +132,28 @@ async function showSectionImage(seg, allowReroll) {
 }
 
 //
+// Reset to the fresh idle state after a spell of inactivity once her last
+// section was reached: drop the played-out reply, empty the dialogue box, and
+// put her portrait back to idle. Skipped if she's no longer idle (a new turn
+// began) or a permission prompt is still waiting for an answer.
+//
+function resetToIdle() {
+  if (getEditorState() !== "idle") {
+    return;
+  }
+
+  const perm = qs("#perm-window");
+
+  if (perm && getComputedStyle(perm).display !== "none") {
+    return;
+  }
+
+  resetPlayback();
+  clearEditor();
+  setEmotion("idle");
+}
+
+//
 // Clear all reply-playback state.
 //
 function resetPlayback() {
@@ -156,6 +180,10 @@ function endReply() {
   if (done) {
     done();
   }
+
+  // Her last section has been reached and she's idle: start the inactivity
+  // countdown that resets the box + portrait if the user steps away.
+  armIdleReset();
 }
 
 //
@@ -326,6 +354,7 @@ export function cancelResponding() {
 
   stopAudio();
   onAllDone = null;
+  cancelIdleReset();
   resetPlayback();
   finishReply();
 }
@@ -356,6 +385,7 @@ export async function sendMessage(message) {
   }
 
   playSound("message-sent");
+  cancelIdleReset();
 
   const editor = getEditorElement();
 
@@ -432,6 +462,8 @@ export async function sendMessage(message) {
 // click-through). Called once at startup.
 //
 export function initReplyClick() {
+  initIdleReset(resetToIdle);
+
   const stage = qs(".vn-center");
 
   if (!stage) {

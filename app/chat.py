@@ -1,23 +1,35 @@
 # ===========================================================================
 #  chat.py
 #
-#  The "no API key" chat: shells out to the claude CLI with the system prompt
-#  (which holds her persona + reply format), keeping conversation context across
-#  a session, then parses the reply into (emotion, english_text, japanese_speech,
-#  permission). The CLI does the talking; this module shapes it.
+#  The "no API key" chat. Two ways to reach Claude, same (emotion, segments,
+#  permission, action, out_of_credits) contract out the other side:
+#
+#    1. SDK path (default) -- ONE persistent Claude Agent SDK session kept warm
+#       across turns. The claude process is spawned once and reused, so every
+#       reply skips the CLI cold-start the old per-turn `claude -p` paid. Context
+#       lives in the live session (no --resume reload).
+#    2. Subprocess path (fallback) -- the original `claude -p` per turn. Used
+#       automatically if the SDK is unavailable or any SDK turn errors, so the
+#       app behaves exactly as before even when the warm session can't be used.
+#
+#  Set CLAUDE_CHAN_SDK=0 to force the subprocess path.
 # ===========================================================================
 
+import asyncio
 import json
+import os
 import re
 import subprocess
+import threading
 import time
+from concurrent.futures import TimeoutError as FutureTimeout
 
 from . import config
 from . import images
 from . import logbuf
 
-# Whether the session has been started yet (first turn creates it, later turns
-# resume it), so the claude CLI keeps context across messages.
+# Whether the (subprocess) session has been started yet -- first turn creates it,
+# later turns resume it, so the claude CLI keeps context across messages.
 _state = {"started": False}
 
 # Substrings (lower-cased) in a CLI error that mean the account is out of credits
@@ -25,13 +37,20 @@ _state = {"started": False}
 CREDIT_TERMS = ("credit balance", "credit", "billing", "insufficient", "quota",
                 "balance is too low", "payment required")
 
+# In-character messages reused by both paths, so a timeout/credit/error looks the
+# same to the user whichever path produced it.
+TIMEOUT_REPLY = ("idle", [{"text": "sorry, i got stuck thinking for too long there...", "speech": ""}], "", None, False)
+OUT_OF_CREDITS_REPLY = ("sad",
+                        [{"text": "ah... i've run out of credits, so i can't reply right now. sorry!",
+                          "speech": "ごめんね、クレジットがなくなっちゃって、いまおはなしできないの。",
+                          "emotion": "sad"}],
+                        "", None, True)
 
-# Run the claude CLI for one turn and return the parsed reply tuple plus an
-# out_of_credits flag: (emotion, segments, permission, action, out_of_credits).
-# Falls back to an in-character message on timeout, a missing CLI, or a non-zero
-# exit (which may itself be an out-of-credits failure).
-def run_claude(prompt, model=None):
-    model = model if model in config.ALLOWED_MODELS else config.DEFAULT_MODEL
+
+# Build the appended persona system prompt: her persona + the action/permission
+# protocol + the desktop actions she can take. Shared by both paths so they send
+# Claude exactly the same instructions.
+def _build_system():
     system = config.SYSTEM_PROMPT
 
     if config.CLAUDE_TOOLS:
@@ -79,6 +98,21 @@ def run_claude(prompt, model=None):
             "###BG###/###MEM### with ###PERM###."
         )
 
+    return system
+
+
+# ---------------------------------------------------------------------------
+#  Subprocess path (fallback) -- the original `claude -p` per turn.
+# ---------------------------------------------------------------------------
+
+# Run the claude CLI for one turn and return the parsed reply tuple plus an
+# out_of_credits flag: (emotion, segments, permission, action, out_of_credits).
+# Falls back to an in-character message on timeout, a missing CLI, or a non-zero
+# exit (which may itself be an out-of-credits failure).
+def _run_claude_subprocess(prompt, model=None):
+    model = model if model in config.ALLOWED_MODELS else config.DEFAULT_MODEL
+    system = _build_system()
+
     command = [
         "claude", "-p", prompt,
         "--model", model,
@@ -104,7 +138,7 @@ def run_claude(prompt, model=None):
                               cwd=config.CLAUDE_CWD, timeout=180)
     except subprocess.TimeoutExpired:
         logbuf.add("chat: claude TIMED OUT after 180s")
-        return "idle", [{"text": "sorry, i got stuck thinking for too long there...", "speech": ""}], "", None, False
+        return TIMEOUT_REPLY
     except FileNotFoundError:
         logbuf.add("chat: claude CLI not found on PATH")
         return "sad", [{"text": "i can't find the claude CLI -- is it installed and on your PATH?", "speech": ""}], "", None, False
@@ -119,11 +153,7 @@ def run_claude(prompt, model=None):
         # Out of credits is its own case: she says so and the app pops a notice.
         if any(term in err.lower() for term in CREDIT_TERMS):
             logbuf.add("chat: detected OUT OF CREDITS")
-            return ("sad",
-                    [{"text": "ah... i've run out of credits, so i can't reply right now. sorry!",
-                      "speech": "ごめんね、クレジットがなくなっちゃって、いまおはなしできないの。",
-                      "emotion": "sad"}],
-                    "", None, True)
+            return OUT_OF_CREDITS_REPLY
 
         return "idle", [{"text": "hmm, something went sideways on my end...\n" + err, "speech": ""}], "", None, False
 
@@ -142,6 +172,207 @@ def run_claude(prompt, model=None):
     logbuf.add("chat: claude ok (%dms, turns=%s, cost=%s)" % (elapsed, turns, cost))
 
     return (*parse(text), False)
+
+
+# ---------------------------------------------------------------------------
+#  SDK path -- one warm Claude Agent SDK session reused across turns.
+# ---------------------------------------------------------------------------
+
+# Force the subprocess path with CLAUDE_CHAN_SDK=0.
+USE_SDK = os.environ.get("CLAUDE_CHAN_SDK", "1") != "0"
+
+# Tools she may auto-run (matches CLAUDE_TOOLS); everything else is denied so a
+# stray tool request can never hang the non-interactive session.
+_ALLOWED_TOOLS = config.CLAUDE_TOOLS.split()
+
+_sdk = None            # the imported module, or False once known unavailable
+_loop = None           # background asyncio loop that owns the session
+_loop_lock = threading.Lock()
+_turn_lock = threading.Lock()  # single-user: serialize warm-session turns
+_client = None         # the live ClaudeSDKClient, created on first use
+_client_model = None   # the model the live client is currently set to
+_client_lock = asyncio.Lock()  # serialize connect so a turn + warm-up don't double-connect
+
+
+# Import the SDK once; cache False if it isn't installed so we stop trying.
+def _import_sdk():
+    global _sdk
+
+    if _sdk is None:
+        try:
+            import claude_agent_sdk as sdk
+            _sdk = sdk
+        except Exception as error:
+            logbuf.add("chat: claude-agent-sdk unavailable (%s); using subprocess" % error)
+            _sdk = False
+
+    return _sdk
+
+
+# Start (once) the background event loop that owns the persistent session.
+def _ensure_loop():
+    global _loop
+
+    with _loop_lock:
+        if _loop is None:
+            _loop = asyncio.new_event_loop()
+            threading.Thread(target=_loop.run_forever, daemon=True,
+                             name="claude-sdk-loop").start()
+
+    return _loop
+
+
+# Permission gate: auto-allow the configured tools, deny everything else. Keeps
+# her to the same tool set the CLI's --allowedTools gave her, and guarantees an
+# unexpected tool request is answered (never left hanging) in this headless app.
+async def _gate_tool(tool_name, tool_input, context):
+    if tool_name in _ALLOWED_TOOLS:
+        return _sdk.PermissionResultAllow()
+
+    return _sdk.PermissionResultDeny(message="not permitted for Claude-chan")
+
+
+# Get the warm client, creating it on first use. A model change is applied to the
+# live session (no reconnect), so the model picker keeps working without losing
+# the warm process or the conversation.
+async def _ensure_client(model):
+    global _client, _client_model
+
+    async with _client_lock:
+        if _client is None:
+            options = _sdk.ClaudeAgentOptions(
+                system_prompt={"type": "preset", "preset": "claude_code", "append": _build_system()},
+                allowed_tools=_ALLOWED_TOOLS,
+                disallowed_tools=["Bash"],
+                can_use_tool=_gate_tool,
+                cwd=config.CLAUDE_CWD,
+                model=model,
+            )
+            client = _sdk.ClaudeSDKClient(options=options)
+            await client.connect()
+            _client = client
+            _client_model = model
+        elif model and model != _client_model:
+            await _client.set_model(model)
+            _client_model = model
+
+    return _client
+
+
+# One turn on the warm session: send the prompt, drain the reply, hand back the
+# final ResultMessage (the analog of the CLI's JSON output).
+async def _ask_sdk(prompt, model):
+    client = await _ensure_client(model)
+    await client.query(prompt)
+
+    result = None
+
+    async for message in client.receive_response():
+        if isinstance(message, _sdk.ResultMessage):
+            result = message
+
+    return result
+
+
+# Tear down the warm session so the next turn reconnects fresh (after an error or
+# timeout). Best-effort.
+async def _shutdown_client():
+    global _client, _client_model
+
+    client, _client = _client, None
+    _client_model = None
+
+    if client is not None:
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+
+
+# Run one turn through the warm session and shape it into the same tuple the
+# subprocess path returns. Raises on infrastructure errors so the caller can fall
+# back to the subprocess for this turn.
+def _run_claude_sdk(prompt, model=None):
+    model = model if model in config.ALLOWED_MODELS else config.DEFAULT_MODEL
+    loop = _ensure_loop()
+
+    logbuf.add("chat: claude(sdk) (model=%s, tools=[%s], cwd=%s)"
+               % (model, config.CLAUDE_TOOLS or "none", config.CLAUDE_CWD))
+
+    started = time.monotonic()
+
+    try:
+        result = asyncio.run_coroutine_threadsafe(_ask_sdk(prompt, model), loop).result(timeout=185)
+    except FutureTimeout:
+        logbuf.add("chat: claude(sdk) TIMED OUT; resetting session")
+        asyncio.run_coroutine_threadsafe(_shutdown_client(), loop)
+        return TIMEOUT_REPLY
+    except Exception:
+        # Reset the session so the next turn reconnects, then bubble up to the
+        # subprocess fallback for this turn.
+        try:
+            asyncio.run_coroutine_threadsafe(_shutdown_client(), loop)
+        except Exception:
+            pass
+        raise
+
+    elapsed = int((time.monotonic() - started) * 1000)
+
+    if result is not None and result.is_error:
+        err = (result.result or str(getattr(result, "errors", "")) or
+               str(getattr(result, "api_error_status", ""))).strip()
+        logbuf.add("chat: claude(sdk) FAILED (%dms, subtype=%s): %s"
+                   % (elapsed, getattr(result, "subtype", None), err[-400:]))
+
+        if any(term in err.lower() for term in CREDIT_TERMS):
+            logbuf.add("chat: detected OUT OF CREDITS")
+            return OUT_OF_CREDITS_REPLY
+
+        return "idle", [{"text": "hmm, something went sideways on my end...\n" + err, "speech": ""}], "", None, False
+
+    text = ((result.result if result else None) or "").strip()
+    logbuf.add("chat: claude(sdk) ok (%dms, turns=%s, cost=%s)"
+               % (elapsed, getattr(result, "num_turns", None),
+                  getattr(result, "total_cost_usd", None)))
+
+    return (*parse(text), False)
+
+
+# ---------------------------------------------------------------------------
+#  Dispatcher
+# ---------------------------------------------------------------------------
+
+# Run one chat turn. Prefers the warm SDK session; falls back to the per-turn
+# subprocess if the SDK isn't available or a turn errors, so behavior is
+# unchanged from the user's side either way.
+def run_claude(prompt, model=None):
+    if USE_SDK and _import_sdk():
+        with _turn_lock:
+            try:
+                return _run_claude_sdk(prompt, model)
+            except Exception as error:
+                logbuf.add("chat: SDK path error (%s); falling back to subprocess" % error)
+
+    return _run_claude_subprocess(prompt, model)
+
+
+# Pre-connect the warm session at startup so the user's first reply doesn't pay
+# the one-time connect cost. Non-blocking and best-effort: a failure just means
+# the session connects lazily (or the subprocess path runs) on the first turn.
+def warm_up():
+    if not (USE_SDK and _import_sdk()):
+        return
+
+    loop = _ensure_loop()
+
+    async def _connect():
+        try:
+            await _ensure_client(config.DEFAULT_MODEL)
+            logbuf.add("chat: warm SDK session ready")
+        except Exception as error:
+            logbuf.add("chat: SDK warm-up failed (%s); will connect lazily" % error)
+
+    asyncio.run_coroutine_threadsafe(_connect(), loop)
 
 
 # Pull a leading [mood] tag off a page of text, returning (mood_or_default,

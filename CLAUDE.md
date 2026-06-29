@@ -40,11 +40,23 @@ and there are no inline comments.
 | `.vscode/launch.json` | "Run Claude_chan" (F5). |
 
 ### The "no API" chat
-`app/chat.py`'s `run_claude()` runs: `claude -p <msg> --output-format json --append-system-prompt <SYSTEM_PROMPT>`.
-First turn `--session-id <uuid>`, later turns `--resume <uuid>` → keeps context.
-`SYSTEM_PROMPT` (in `app/config.py`) tells the model to (a) start each reply with
-a mood tag like `[happy]`, and (b) end with `###JP### <kana>` — the Japanese line
-for the voice. `parse()` splits the result into `(emotion, english, speech, permission)`.
+`app/chat.py`'s `run_claude()` has **two paths**, same auth (the logged-in `claude`
+CLI — no API key) and same output contract:
+- **SDK path (default):** one persistent **Claude Agent SDK** (`claude-agent-sdk`)
+  session kept warm across turns on a background asyncio loop, so each reply skips
+  the per-turn CLI cold start and context lives in the live session (no `--resume`
+  reload). Pre-connected at startup via `chat.warm_up()`. The model picker switches
+  the live session with `client.set_model()`. Needs the deps in `.venv/` (the
+  systemd unit runs `.venv/bin/python server.py`).
+- **Subprocess path (fallback):** the original `claude -p <msg> --output-format json
+  --append-system-prompt <system>` (first turn `--session-id`, later `--resume`).
+  Used automatically if the SDK is missing or any SDK turn errors — so behavior is
+  unchanged from the user's side either way. Force it with `CLAUDE_CHAN_SDK=0`.
+
+Both build the same appended persona via `_build_system()`. `SYSTEM_PROMPT` (in
+`app/config.py`) tells the model to (a) start each reply with a mood tag like
+`[happy]`, and (b) end with `###JP### <kana>` — the Japanese line for the voice.
+`parse()` splits the result into `(emotion, segments, permission, action)`.
 
 ### HTTP endpoints (127.0.0.1:8765)
 - `GET /` — static files
@@ -141,7 +153,10 @@ re-download them on next start. They sit unused since the app uses Runa.
 
 ## Running, from scratch
 1. Start the engine: `~/.local/bin/aivisspeech-engine`
-2. Start the app: `python3 server.py` (or VS Code F5) → http://localhost:8765
+2. Start the app: `.venv/bin/python server.py` → http://localhost:8765. The
+   `.venv/` (created with `python -m venv .venv`, holding `claude-agent-sdk`)
+   powers the warm-session SDK path; plain `python3 server.py` / VS Code F5 runs
+   too but falls back to the per-turn subprocess path (no SDK in system Python).
 3. The `claude` CLI must be logged in (it powers the chat; no API key).
 
 ## Known follow-ups offered but not done
