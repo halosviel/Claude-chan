@@ -289,10 +289,18 @@ export function showWindowCentered(win) {
   setTaskActive(win, true);
 }
 
+// How far OFF the app center a popup spawns. SIDE_OFFSET is the distance from the
+// app center to the popup center (so it lands beside Claude-chan, not on her);
+// VERTICAL_JITTER varies the height a little. Raise SIDE_OFFSET to push further.
+const SIDE_OFFSET_FRACTION = 0.32;  // fraction of the app window's width
+const SIDE_OFFSET_MIN = 110;        // px, so it clears her even on a narrow app
+const VERTICAL_JITTER = 70;         // px, +/- around the vertical center
+
 //
-// Position a (fixed) popup near the CENTER of the Claude-chan app window, with a
-// small random jitter so it doesn't land in the exact same spot every time.
-// Falls back to screen-center when the app window isn't found. Sets left/top only.
+// Position a (fixed) popup OFF to one side of the Claude-chan app window (random
+// side, with a little vertical variation) so it spawns beside her rather than
+// covering her. Falls back to screen-center when the app window isn't found, and
+// is clamped to stay on screen. Sets left/top only.
 //
 export function placeNearAppCenter(win) {
   const width = win.offsetWidth;
@@ -303,10 +311,11 @@ export function placeNearAppCenter(win) {
 
   if (app) {
     const rect = app.getBoundingClientRect();
-    const jitter = 45;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const offsetX = Math.max(width / 2 + SIDE_OFFSET_MIN, rect.width * SIDE_OFFSET_FRACTION);
 
-    left = rect.left + (rect.width - width) / 2 + (Math.random() * 2 - 1) * jitter;
-    top = rect.top + (rect.height - height) / 2 + (Math.random() * 2 - 1) * jitter;
+    left = rect.left + rect.width / 2 + side * offsetX - width / 2;
+    top = rect.top + rect.height / 2 + (Math.random() * 2 - 1) * VERTICAL_JITTER - height / 2;
   } else {
     left = (innerWidth - width) / 2;
     top = (innerHeight - height) / 2 - 20;
