@@ -53,21 +53,42 @@ export function stopAudio() {
 
 //
 // Ask the server whether the speech engine is available and update the hint.
-// Called once at startup.
+// The engine can still be warming up (~25s cold start) when the page loads, so
+// poll instead of deciding once -- the hint clears the moment it answers.
 //
 export async function initVoice() {
   onChange(updateVoiceNote);
+  pollEngineReady();
+}
 
-  try {
-    const data = await fetchJson("/tts");
+//
+// Poll /tts until the engine reports ready (or ~90s passes), refreshing the
+// hint each time. Runs detached so it never blocks page startup.
+//
+async function pollEngineReady() {
+  const deadline = Date.now() + 90000;
 
-    serverVoiceReady = !!data.server;
-    dlog("/tts ->", data);
-  } catch (error) {
-    dlog("/tts error", error);
+  for (;;) {
+    let ready = false;
+
+    try {
+      const data = await fetchJson("/tts");
+
+      ready = !!data.server;
+      dlog("/tts ->", data);
+    } catch (error) {
+      dlog("/tts error", error);
+    }
+
+    serverVoiceReady = ready;
+    updateVoiceNote();
+
+    if (ready || Date.now() > deadline) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
   }
-
-  updateVoiceNote();
 }
 
 //

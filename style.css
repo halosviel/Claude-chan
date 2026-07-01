@@ -842,20 +842,25 @@ body.lang-ja .vn-panel-en { display: none; }
 .transcript-log .md-tick,
 .transcript-log .md-fence { display: none; }
 .transcript-log .md-code {
-  background: #efe0cc;
-  color: #5a4632;
-  border: 1px solid #e3c9a4;
+  background: #e2cb9f;
+  color: #43331f;
+  border: 1px solid #c6a06a;
 }
-.transcript-log .md-code::before { color: #b5701f; }
+.transcript-log .md-code::before { color: #a9590f; }
 .transcript-log .tok-keyword { color: #c25a1a; }
 .transcript-log .tok-string { color: #5f8a3a; }
 .transcript-log .tok-number { color: #b5701f; }
 .transcript-log .tok-comment { color: #a08a6a; }
 .transcript-log .md-code-inline {
-  background: rgba(120, 60, 20, .12);
-  border: 1px solid rgba(120, 60, 20, .2);
-  color: inherit;
+  background: #f3d49b;
+  border: 1px solid #d9ad6a;
+  color: #6a3d12;
 }
+
+/* Selected text in the backlog: a deep terracotta with cream text so it stays
+   legible even over the (now less pale) code-block and inline-highlight chips. */
+.transcript-log ::selection { background: #9c3d12; color: #fff3e4; }
+.transcript-log ::-moz-selection { background: #9c3d12; color: #fff3e4; }
 .transcript-log .msg-bubble p { margin: 0; }
 
 /* ---- shutdown screen (after Power off) ---- */

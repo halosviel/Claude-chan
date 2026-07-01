@@ -23,6 +23,7 @@ from . import images
 from . import voice
 from . import chat
 from . import logbuf
+from . import engine
 
 
 # Backend files (server + app package). A change here needs a process restart.
@@ -223,6 +224,9 @@ def main():
         print("Claude-chan is already running on port %d (the claudechan service or" % config.PORT)
         print("another instance). Stop it first:  systemctl --user stop claudechan")
         return
+
+    # Bring the AivisSpeech engine up alongside the app (stopped again on exit).
+    engine.start()
 
     # Auto-restart on backend edits (unless disabled) so Python changes apply
     # without a manual restart. The page is refreshed by hand (no live-reload).

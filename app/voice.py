@@ -68,9 +68,7 @@ def engine_up():
     try:
         with urllib.request.urlopen(config.AIVIS_URL + "/version", timeout=1.5) as response:
             return response.status == 200
-    except Exception as error:
-        log("AivisSpeech not reachable at %s (%s). Is the engine running?"
-            % (config.AIVIS_URL, error))
+    except Exception:
         return False
 
 

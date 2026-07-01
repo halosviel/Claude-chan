@@ -46,4 +46,4 @@ export const DIALOGUE_TYPE_MS = 18;
 // How long (milliseconds) to wait with no interaction after Claude-chan's last
 // dialogue section before the box and her portrait reset to the fresh idle
 // state. 20000 = 20s; raise for more patience, lower to reset sooner.
-export const IDLE_RESET_MS = 10000;
+export const IDLE_RESET_MS = 15000;

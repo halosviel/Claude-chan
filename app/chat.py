@@ -243,7 +243,6 @@ async def _ensure_client(model):
             options = _sdk.ClaudeAgentOptions(
                 system_prompt={"type": "preset", "preset": "claude_code", "append": _build_system()},
                 allowed_tools=_ALLOWED_TOOLS,
-                disallowed_tools=["Bash"],
                 can_use_tool=_gate_tool,
                 cwd=config.CLAUDE_CWD,
                 model=model,

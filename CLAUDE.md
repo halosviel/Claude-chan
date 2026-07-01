@@ -31,7 +31,7 @@ and there are no inline comments.
 | Path | Role |
 |------|------|
 | `server.py` | Thin entry point: runs `app.server.main()` (F5 / `python3 server.py`). |
-| `app/` | Backend package: `config.py` (constants + `SYSTEM_PROMPT`), `images.py` (portraits/backgrounds), `voice.py` (AivisSpeech), `chat.py` (`run_claude`/`parse`), `server.py` (HTTP Handler + `main`). |
+| `app/` | Backend package: `config.py` (constants + `SYSTEM_PROMPT`), `images.py` (portraits/backgrounds), `voice.py` (AivisSpeech), `engine.py` (owns the engine process), `chat.py` (`run_claude`/`parse`), `server.py` (HTTP Handler + `main`). |
 | `index.html` / `style.css` | Page shell + styles. Loads `js/main.js` as a module. |
 | `js/` | Frontend ES modules. Entry `main.js` wires the rest. Utilities in `js/util/` (`dom`, `sound`, `animation`). Feature modules: `log`, `markdown`, `windowing`, `startmenu`, `clock`, `avatar`, `backgrounds`, `voice`, `models`, `editor`, `chat`. |
 | `assets/emotions/<emotion>/*.png` | Mood portraits (user-owned). Emotions: happy, talking, thinking, angry, sad, laughing, embarrassed. |
@@ -47,7 +47,7 @@ CLI — no API key) and same output contract:
   the per-turn CLI cold start and context lives in the live session (no `--resume`
   reload). Pre-connected at startup via `chat.warm_up()`. The model picker switches
   the live session with `client.set_model()`. Needs the deps in `.venv/` (the
-  systemd unit runs `.venv/bin/python server.py`).
+  usual launcher — now `.venv/bin/python server.py` or VS Code F5 — runs it).
 - **Subprocess path (fallback):** the original `claude -p <msg> --output-format json
   --append-system-prompt <system>` (first turn `--session-id`, later `--resume`).
   Used automatically if the SDK is missing or any SDK turn errors — so behavior is
@@ -91,11 +91,20 @@ earlier but has been fully removed from the project and system.
 - Engine binary: `~/.local/share/aivisspeech-engine/Linux-x64/run`
   (downloaded from GitHub `Aivis-Project/AivisSpeech-Engine`, extracted with 7z)
 - Headless launcher: `~/.local/bin/aivisspeech-engine` (serves `:10101`).
-  NOT on PATH — run the full path. **Does not auto-start on reboot** (no systemd
-  unit yet; the user was offered one).
+  NOT on PATH — run the full path. The app starts/stops it automatically
+  (see "Starting the engine" below); it does NOT auto-start on login. A
+  disabled systemd user unit `aivisspeech-engine.service` still exists (off).
 - Voice models on disk: `~/.local/share/AivisSpeech-Engine/Models/<uuid>.aivmx`
 
-### Start the engine (must be running for voice)
+### Starting the engine (the app does it for you)
+`app/engine.py`'s `engine.start()` is called from `app.server.main()`: it
+launches `~/.local/bin/aivisspeech-engine` if the engine isn't already
+serving, and stops it when the app exits (atexit + a SIGTERM handler + Linux
+`PR_SET_PDEATHSIG`, so it can't be orphaned — VS Code's stop button or a kill
+takes the engine down with it). An engine already running by hand is left
+alone (it only stops what it launched). The engine pid is carried across the
+reload re-exec in `CLAUDECHAN_ENGINE_PID`, so a backend edit re-attaches
+instead of spawning a second engine. To run the engine on its own:
 ```bash
 ~/.local/bin/aivisspeech-engine      # serves http://127.0.0.1:10101
 curl http://127.0.0.1:10101/version  # sanity check
@@ -141,7 +150,7 @@ re-download them on next start. They sit unused since the app uses Runa.
 - **Personality**: her persona, style, and the reply format all live in one
   place — `SYSTEM_PROMPT` in `app/config.py`. (The old live `personality.txt`
   was merged in; that file is no longer read.) Editing the prompt needs a server
-  restart: `systemctl --user restart claudechan.service`.
+   restart — re-run from VS Code, or just save (the backend auto-reload restarts it).
 - **Volume**: master scale is `SOUND_SCALE` in `js/util/sound.js`; the voice's
   own level is `VOICE_VOLUME` in `js/voice.js`. There is no in-app volume
   control (the old dropdown/mute button were removed).
@@ -152,14 +161,15 @@ re-download them on next start. They sit unused since the app uses Runa.
   caching, or static edits will look "broken" / not apply).
 
 ## Running, from scratch
-1. Start the engine: `~/.local/bin/aivisspeech-engine`
-2. Start the app: `.venv/bin/python server.py` → http://localhost:8765. The
-   `.venv/` (created with `python -m venv .venv`, holding `claude-agent-sdk`)
-   powers the warm-session SDK path; plain `python3 server.py` / VS Code F5 runs
-   too but falls back to the per-turn subprocess path (no SDK in system Python).
-3. The `claude` CLI must be logged in (it powers the chat; no API key).
+The app manages the engine itself, so you just run the app:
+1. Start the app: `.venv/bin/python server.py` (or VS Code F5) →
+   http://localhost:8765. On startup `app.server.main()` calls
+   `engine.start()`, which launches `~/.local/bin/aivisspeech-engine` if it
+   isn't already serving and stops it again when the app exits. The `.venv/`
+   (holds `claude-agent-sdk`) powers the warm-session SDK path; plain
+   `python3 server.py` / F5 falls back to the per-turn subprocess path.
+2. The `claude` CLI must be logged in (it powers the chat; no API key).
 
 ## Known follow-ups offered but not done
-- systemd **user service** to auto-start the engine on login.
 - In-app **voice dropdown** (switch voice without restarting the server).
 - Wiring the voice **style to the mood** (e.g. AivisSpeech emotion styles).

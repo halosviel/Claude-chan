@@ -45,16 +45,16 @@ if DEFAULT_MODEL not in ALLOWED_MODELS:
 # what gives her real abilities (reading/editing files, searching, the web),
 # scoped to CLAUDE_CWD (the project by default).
 #
-# GUARDRAILS (for now):
-#  - Bash (arbitrary shell) is intentionally LEFT OUT by default. Add it to
-#    CLAUDE_TOOLS only when you want her to run commands.
+# GUARDRAILS:
+#  - Bash (arbitrary shell) IS enabled -- she can run commands in CLAUDE_CWD.
+#    Remove it from CLAUDE_TOOLS to take shell access away again.
 #  - She is scoped to CLAUDE_CWD; point it elsewhere to widen/narrow her reach.
 #  - Set CLAUDE_TOOLS="" to disable all tools (back to chat-only).
-# NOTE: these tools currently run PRE-APPROVED -- the in-app permission prompt
-# does not yet gate Claude Code tool use (that's a planned feature).
+# NOTE: tools run PRE-APPROVED -- the in-app permission prompt does not yet gate
+# Claude Code tool use, so Bash commands execute WITHOUT a Yes/No confirmation.
 CLAUDE_TOOLS = os.environ.get(
     "CLAUDE_TOOLS",
-    "Read Edit Write Glob Grep LS WebFetch WebSearch",
+    "Read Edit Write Glob Grep LS WebFetch WebSearch Bash",
 ).strip()
 CLAUDE_CWD = os.environ.get("CLAUDE_CWD", ROOT)
 
