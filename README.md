@@ -13,20 +13,20 @@ Claude-code as a dating sim in a virtual machine. Fully vibe coded, fully functi
 - Switch between sceneries
 - Tons of Claude-chan sprites (by Grok)
 - Intuitive controls from dating sims
+- A robots.txt + many comments in the code for your Claude-code to understand
 
 ## Retains everything from Claude-code
 - Can edit your files, do tasks for you, etc.
 - Attachment/long message pasting
 - `ESC` to cancel response/thinking
-- Permission requests
+- Permission requests (popup)
 - Switch between models
 
 Claude-chan's messages are displayed as click-through segments, visual-novel style.
 
-Work in progress!
-
 # Installation
-Installation is simple since Claude-chan is made to have as little dependencies as possible!
+Claude-chan is made to have as little dependencies as possible!
+Only Archlinx and Windows supported rn.
 
 ## Archlinux
 ### Dependencies
@@ -40,6 +40,8 @@ yay -S claude-code
 ```
 
 ## Windows
+> [!NOTE]
+> This part is uh, vibecoded, so idk if it really works..
 ### Dependencies
 [python3](https://www.python.org/downloads/windows/) - winget
 ```
@@ -61,7 +63,6 @@ npm install -g @anthropic-ai/claude-code
 git clone https://github.com/halosviel/Claude-chan.git
 cd Claude-chan
 ```
-
 Make sure you are signed in your respective Claude-code app and have an active subscription!!!
 
 # Usage
@@ -69,7 +70,7 @@ Make sure you are signed in your respective Claude-code app and have an active s
 Open the project in VSC and simply press F5. It should open the terminal and you should see something like this:
 <img width="1359" height="144" alt="image" src="https://github.com/user-attachments/assets/ea9bc6cb-5796-460f-9858-610a738ba508" />
 
-Then, open the `http://localhost:8765` website in your browser! (might be different)
+Then, open the `http://localhost:8765` website in your browser! (might be different for you)
 
 This works the same on Linux and Windows.
 
