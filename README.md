@@ -1,6 +1,6 @@
 # Claude_chan
 
-Claude-code as a dating sim in a virtual machine, fully vibe coded.
+Claude-code as a dating sim in a virtual machine. Fully vibe coded, fully functional.
 
 <p align="center">
     <img width="1827" height="959" alt="screenshot" src="https://github.com/user-attachments/assets/5110df1b-6ff5-4b01-aee9-044dbb37a169" />
@@ -15,6 +15,7 @@ Claude-code as a dating sim in a virtual machine, fully vibe coded.
 - Intuitive controls from dating sims
 
 ## Retains everything from Claude-code
+- Can edit your files, do tasks for you, etc.
 - Attachment/long message pasting
 - `ESC` to cancel response/thinking
 - Permission requests
