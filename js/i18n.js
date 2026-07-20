@@ -42,6 +42,7 @@ const DICT = {
     "help.cancel": "Press <kbd>Esc</kbd> to cancel prompt",
     "help.next": "Press <kbd>Space</kbd> / <kbd>→</kbd> or click to go forward",
     "help.prev": "Press <kbd>←</kbd> or right-click to go back",
+    "help.voices": "Startup may take longer the more voices you install",
     "memory.heading": "Memory",
     "memory.intro": "Claude-chan's memories live here.<br>If you want to alter Claude-chan's memories, simply tell her!",
     "transcript.start": "Session started",
@@ -51,6 +52,8 @@ const DICT = {
     "perm.yes": "Yes",
     "perm.no": "No",
     "voice.note": "🔇 the AivisSpeech engine isn't running — start it, then reload (see README).",
+    "loading.slow": "the voice engine is taking a little longer to wake up…",
+    "loading.skip": "enter anyway",
   },
   ja: {
     "speaker.you": "あなた",
@@ -71,6 +74,7 @@ const DICT = {
     "help.cancel": "<kbd>Esc</kbd> キーでキャンセル",
     "help.next": "<kbd>Space</kbd> / <kbd>→</kbd> またはクリックで進む",
     "help.prev": "<kbd>←</kbd> または右クリックで戻る",
+    "help.voices": "こえをふやすほど、きどうに じかんが かかることがあります",
     "memory.heading": "メモリー",
     "memory.intro": "Claude-chan の記憶はここに。<br>記憶を変えたいときは、彼女に話しかけてね！",
     "transcript.start": "セッション開始",
@@ -80,6 +84,8 @@ const DICT = {
     "perm.yes": "はい",
     "perm.no": "いいえ",
     "voice.note": "🔇 AivisSpeech エンジンが起動していません。起動して再読み込みしてください。",
+    "loading.slow": "こえエンジンのきどうに もうすこし じかんが かかっています…",
+    "loading.skip": "そのままはいる",
   },
 };
 

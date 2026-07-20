@@ -74,6 +74,7 @@ VOICE_NAME_ROMAJI = {
     "morioki": "Morioki",
     "凛音エル": "Rinne Eru",
     "花音": "Kanon",
+    "阿井田 茂": "Aida Shigeru",
 }
 VOICE_STYLE_ROMAJI = {
     "ノーマル": "",
@@ -88,6 +89,36 @@ VOICE_STYLE_ROMAJI = {
 MALE_VOICES = {"阿井田 茂", "fumifumi"}
 # Other installed voices to hide from the picker (any reason).
 HIDDEN_VOICES = {"にせ", "morioki", "凛音エル"}
+
+# The voices offered in Settings, whether or not they're installed. Only a couple
+# are kept installed; the rest are downloaded on demand from AivisHub (by uuid)
+# and can be deleted again -- so the engine's model set stays small. style_id is
+# the engine's stable global id for the voice's Normal style (what synthesis uses);
+# jp is the engine speaker name (romanised for display via VOICE_NAME_ROMAJI).
+VOICE_CATALOG = [
+    {"jp": "るな", "uuid": "4f281e78-eba6-495a-8e50-5c322d02b5b1", "style_id": 345585728},
+    {"jp": "まお", "uuid": "a59cb814-0083-4369-8542-f51a29e72af7", "style_id": 888753760},
+    {"jp": "コハク", "uuid": "22e8ed77-94fe-4ef2-871f-a86f94e9a579", "style_id": 1878365376},
+    {"jp": "まい", "uuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6", "style_id": 1431611904},
+    {"jp": "花音", "uuid": "a670e6b8-0852-45b2-8704-1bc9862f2fe6", "style_id": 1325133120},
+    {"jp": "にせ", "uuid": "6d11c6c2-f4a4-4435-887e-23dd60f8b8dd", "style_id": 1937616896},
+    {"jp": "morioki", "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48", "style_id": 497929760},
+    {"jp": "凛音エル", "uuid": "f5017410-fbb5-49e1-97cb-e785f42e15f5", "style_id": 1388823424},
+    {"jp": "fumifumi", "uuid": "71e72188-2726-4739-9aa9-39567396fb2a", "style_id": 606865152},
+    {"jp": "阿井田 茂", "uuid": "47e53151-a378-46f3-abee-ce13aa07feb1", "style_id": 1310138976},
+]
+
+# Voices that always stay installed and so are never offered for deletion: Runa
+# (the default) and the two engine built-ins (Mao, Kohaku), which the engine
+# refuses to uninstall and re-downloads on boot anyway.
+ALWAYS_KEPT = {
+    "4f281e78-eba6-495a-8e50-5c322d02b5b1",  # Runa
+    "a59cb814-0083-4369-8542-f51a29e72af7",  # Mao
+    "22e8ed77-94fe-4ef2-871f-a86f94e9a579",  # Kohaku
+}
+
+# AivisHub download endpoint (returns the .aivmx for a model uuid, via a redirect).
+AIVISHUB_DOWNLOAD = "https://api.aivis-project.com/v1/aivm-models/%s/download?model_type=AIVMX"
 
 # Moods Claude-chan can express (must match assets/emotions/<name>/ folders),
 # and the image extensions the asset listings accept.

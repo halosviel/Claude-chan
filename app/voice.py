@@ -63,6 +63,54 @@ def list_voices():
     return default + rest
 
 
+# The set of style ids the engine currently has installed (from /speakers), or
+# None if the engine is unreachable -- used to flag catalog voices installed.
+def _installed_style_ids():
+    try:
+        with urllib.request.urlopen(config.AIVIS_URL + "/speakers", timeout=3) as response:
+            speakers = json.loads(response.read())
+    except Exception as error:
+        log("could not list voices: %s" % error)
+        return None
+
+    return {style.get("id") for speaker in speakers for style in speaker.get("styles", [])}
+
+
+# The Settings voice list: every catalogued voice with an `installed` flag, so the
+# UI can show installed ones as selectable and offer the rest as downloads. The
+# default voice is labelled and moved to the top. Returns None if the engine is
+# unreachable (so the UI can say so instead of offering downloads that can't run).
+def list_catalog():
+    installed = _installed_style_ids()
+
+    if installed is None:
+        return None
+
+    voices = []
+
+    for entry in config.VOICE_CATALOG:
+        name = config.VOICE_NAME_ROMAJI.get(entry["jp"], entry["jp"])
+        voices.append({
+            "id": entry["style_id"],
+            "name": name,
+            "uuid": entry["uuid"],
+            "installed": entry["style_id"] in installed,
+            "deletable": entry["uuid"] not in config.ALWAYS_KEPT,
+        })
+
+    default = []
+    rest = []
+
+    for voice in voices:
+        if voice["id"] == config.AIVIS_SPEAKER:
+            voice["name"] = voice["name"] + " (default)"
+            default.append(voice)
+        else:
+            rest.append(voice)
+
+    return default + rest
+
+
 # Return True when the AivisSpeech engine answers its /version endpoint.
 def engine_up():
     try:

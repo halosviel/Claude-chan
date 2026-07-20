@@ -360,6 +360,22 @@ export function cancelResponding() {
 }
 
 //
+// Prefetch each page's voice, but SEQUENTIALLY -- one synthesis at a time. Firing
+// them all at once made AivisSpeech run several neural TTS jobs in parallel,
+// saturating the CPU and stuttering the desktop. Each returned promise resolves
+// to its page's decoded audio, and each synthesis starts only after the previous
+// one finishes -- which still keeps ahead of the page-by-page playback.
+//
+function prefetchSpeech(pages) {
+  let chain = Promise.resolve(null);
+
+  return pages.map((page) => {
+    chain = chain.then(() => prepareSpeech(page.speech || ""));
+    return chain;
+  });
+}
+
+//
 // Begin playing a list of pages (with their voices prefetched).
 //
 function playReply(pages, afterLast) {
@@ -370,7 +386,7 @@ function playReply(pages, afterLast) {
   currentImageSrc = null;
   pageComplete = false;
   onAllDone = afterLast;
-  audioClips = pages.map((page) => prepareSpeech(page.speech || ""));
+  audioClips = prefetchSpeech(pages);
   playPage();
 }
 

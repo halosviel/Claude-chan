@@ -18,7 +18,8 @@ import { initDateBox } from "./datebox.js";
 import { initModels } from "./models.js";
 import { initVoice } from "./voice.js";
 import { initBackgrounds } from "./backgrounds.js";
-import { setEmotion } from "./avatar.js";
+import { setEmotion, preloadPortraits } from "./avatar.js";
+import { preloadSounds, playChime } from "./util/sound.js";
 import { initPermission } from "./permission.js";
 import { initCredits } from "./credits.js";
 import { initEditor } from "./editor.js";
@@ -28,17 +29,21 @@ import { initMemory } from "./memory.js";
 import { initSettings } from "./settings-ui.js";
 import { initInputGate } from "./inputgate.js";
 import { sendMessage, initReplyClick } from "./chat.js";
+import { waitForEngine, hideLoading } from "./loading.js";
 
 //
-// Boot the app: start every subsystem, connect the input box to the chat flow,
-// and pick a cheerful opening portrait.
+// Boot the app: hold behind the loading spinner until the voice engine is ready,
+// then start every subsystem, connect the input box to the chat flow, pick a
+// cheerful opening portrait, and reveal the desktop.
 //
-function main() {
+async function main() {
   const root = document.documentElement.style;
 
   root.setProperty("--primary", PRIMARY_COLOR);
   root.setProperty("--secondary", SECONDARY_COLOR);
   root.setProperty("--hover", HOVER_COLOR);
+
+  await waitForEngine();
 
   initTerminal();
   initServerLog();
@@ -59,7 +64,11 @@ function main() {
   initMemory();
   initSettings();
   initInputGate();
+  preloadSounds();
+  preloadPortraits();
   setEmotion("idle");
+  hideLoading();
+  playChime();
 }
 
 main();

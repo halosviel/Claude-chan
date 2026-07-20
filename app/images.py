@@ -17,16 +17,35 @@ from . import config
 # same picture back to back.
 _last_pick = {}
 
+# Directory listing cache: dir -> (mtime, [files]). A folder's mtime changes when
+# files are added or removed, so hand-edits to the curated folders still show up,
+# but repeat requests (e.g. every mood change hits /image) skip the os.listdir.
+_listing_cache = {}
+
+
+# Sorted filenames in a directory matching the given extensions, cached until the
+# directory's mtime changes. Returns [] when the directory does not exist.
+def _list_dir(directory, exts):
+    try:
+        mtime = os.path.getmtime(directory)
+    except OSError:
+        return []
+
+    cached = _listing_cache.get(directory)
+
+    if cached and cached[0] == mtime:
+        return cached[1]
+
+    files = sorted(f for f in os.listdir(directory) if f.lower().endswith(exts))
+    _listing_cache[directory] = (mtime, files)
+
+    return files
+
 
 # List the PNG filenames in assets/emotions/<folder>/, sorted. Returns [] when
 # the folder does not exist.
 def list_pngs(folder):
-    directory = os.path.join(config.EMOTIONS_DIR, folder)
-
-    if not os.path.isdir(directory):
-        return []
-
-    return sorted(f for f in os.listdir(directory) if f.lower().endswith(".png"))
+    return _list_dir(os.path.join(config.EMOTIONS_DIR, folder), (".png",))
 
 
 # Pick a random PNG for a mood, avoiding an immediate repeat. Unknown moods map
@@ -56,10 +75,16 @@ def pick_image(emotion):
 
 # List every image filename in assets/backgrounds/, sorted, for the scene picker.
 def list_backgrounds():
-    if not os.path.isdir(config.BACKGROUNDS_DIR):
-        return []
+    return _list_dir(config.BACKGROUNDS_DIR, config.IMAGE_EXTS)
 
-    return sorted(
-        f for f in os.listdir(config.BACKGROUNDS_DIR)
-        if f.lower().endswith(config.IMAGE_EXTS)
-    )
+
+# List the web path of every mood portrait across all emotion folders, so the
+# client can preload them and mood swaps show with no fetch/decode flicker.
+def list_all_portraits():
+    paths = []
+
+    for folder in sorted(config.EMOTIONS | {config.FALLBACK_EMOTION}):
+        for name in list_pngs(folder):
+            paths.append("assets/emotions/%s/%s" % (folder, name))
+
+    return paths

@@ -36,62 +36,73 @@ export function getAudioContext() {
   return audioContext;
 }
 
-//
-// Play a named UI sound effect from assets/sounds/<name>.mp3 at the accent
-// volume. Failures (missing file, autoplay block) are swallowed on purpose.
-//
-export function playSound(name) {
-  try {
-    const audio = new Audio("assets/sounds/" + name + ".mp3");
+// Every UI sound effect file (assets/sounds/<name>.mp3). Each is decoded once
+// into an AudioBuffer and replayed from memory: fetching per play would
+// re-download the clip every time (the server sends Cache-Control: no-store), so
+// the first press would lag -- decoding up front makes every play instant.
+const SFX_FILES = [
+  "type", "click", "message-sent",
+  "app-open", "app-close", "app-minimize", "app-fullscreen",
+  "ask-permission",
+];
 
-    // <audio> volume is capped at 1 by the browser, so a file SFX can't exceed
-    // 100%; the synthesized tones below (Web Audio) do honour >100%.
-    audio.volume = Math.min(1, sfxGain(name));
-    audio.play().catch(() => {});
-  } catch (error) {
-    // A sound effect failing to load is never worth interrupting the app for.
-  }
-}
-
-// Decoded keystroke sample, loaded lazily on first use.
-let keyBuffer = null;
-let keyLoading = false;
+// name -> decoded AudioBuffer (null while a load is in flight, absent if never
+// requested).
+const buffers = new Map();
+let preloadArmed = false;
 
 //
-// Load and decode assets/sounds/type.mp3 into a buffer (once). Needs the
-// AudioContext, which is only allowed after a user gesture, so this is kicked
-// off from the first keystroke.
+// Fetch and decode one sound file into the buffer cache (once). Needs the
+// AudioContext, which browsers only allow after a user gesture -- so this runs
+// from a real gesture (preloadSounds' hook or a play call), never at page load.
 //
-async function ensureKeyBuffer() {
-  if (keyBuffer || keyLoading) {
+async function loadBuffer(name) {
+  if (buffers.has(name)) {
     return;
   }
 
-  keyLoading = true;
+  buffers.set(name, null); // reserve so concurrent calls don't double-fetch
 
   try {
     const context = getAudioContext();
-    const response = await fetch("assets/sounds/type.mp3");
+    const response = await fetch("assets/sounds/" + name + ".mp3");
     const bytes = await response.arrayBuffer();
 
-    keyBuffer = await context.decodeAudioData(bytes);
+    buffers.set(name, await context.decodeAudioData(bytes));
   } catch (error) {
-    // missing/undecodable sample: typing just stays silent
+    buffers.delete(name); // let a later play retry
   }
-
-  keyLoading = false;
 }
 
 //
-// Play the keystroke sound with a small random pitch shift (+/- ~120 cents), so
-// rapid typing doesn't sound mechanically identical. Cheap: replays one decoded
-// buffer per press.
+// Decode every UI sound into memory on the first user gesture, so no effect ever
+// has to fetch/decode mid-interaction. Safe to call at startup: it only arms a
+// one-shot listener (the AudioContext cannot start before a gesture). Called once
+// from main().
 //
-export function playKey() {
-  ensureKeyBuffer();
+export function preloadSounds() {
+  const arm = () => {
+    if (preloadArmed) {
+      return;
+    }
 
-  if (!keyBuffer) {
-    return;
+    preloadArmed = true;
+    SFX_FILES.forEach(loadBuffer);
+  };
+
+  window.addEventListener("pointerdown", arm, { once: true });
+  window.addEventListener("keydown", arm, { once: true });
+}
+
+//
+// Play a decoded buffer through a gain node (honouring >100% volume), with an
+// optional random detune in cents. Returns false when the buffer isn't ready.
+//
+function playBuffer(name, detuneCents = 0) {
+  const buffer = buffers.get(name);
+
+  if (!buffer) {
+    return false;
   }
 
   try {
@@ -99,13 +110,49 @@ export function playKey() {
     const source = context.createBufferSource();
     const gain = context.createGain();
 
-    source.buffer = keyBuffer;
-    source.detune.value = (Math.random() * 2 - 1) * 120;
-    gain.gain.value = sfxGain("type");
+    source.buffer = buffer;
+    source.detune.value = detuneCents;
+    gain.gain.value = sfxGain(name);
     source.connect(gain).connect(context.destination);
     source.start();
   } catch (error) {
-    // a dropped keystroke sound is harmless
+    // a dropped sound effect is harmless
+  }
+
+  return true;
+}
+
+//
+// Play a named UI sound effect. Uses the preloaded buffer when available
+// (instant, no re-fetch, no 100% volume cap); before the cache is warm it falls
+// back to a plain <audio> fetch and warms the buffer for next time. Failures
+// (missing file, autoplay block) are swallowed on purpose.
+//
+export function playSound(name) {
+  if (playBuffer(name)) {
+    return;
+  }
+
+  loadBuffer(name);
+
+  try {
+    const audio = new Audio("assets/sounds/" + name + ".mp3");
+
+    audio.volume = Math.min(1, sfxGain(name));
+    audio.play().catch(() => {});
+  } catch (error) {
+    // A sound effect failing to load is never worth interrupting the app for.
+  }
+}
+
+//
+// Play the keystroke sound with a small random pitch shift (+/- ~120 cents), so
+// rapid typing doesn't sound mechanically identical. Replays the preloaded
+// buffer; before it's warm the first press just kicks the load and stays silent.
+//
+export function playKey() {
+  if (!playBuffer("type", (Math.random() * 2 - 1) * 120)) {
+    loadBuffer("type");
   }
 }
 

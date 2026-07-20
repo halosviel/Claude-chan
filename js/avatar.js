@@ -11,6 +11,32 @@
 import { qs, fetchJson } from "./util/dom.js";
 import { dlog } from "./log.js";
 
+// Preloaded portrait Image objects, kept referenced so a mood swap shows the
+// picture instantly instead of fetching/decoding it on first use.
+const preloaded = [];
+
+//
+// Fetch the full list of mood portraits and load every one into memory, so
+// switching moods never has to fetch first (no flicker on a picture's first
+// show). Called once at startup; failures just skip the warm-up.
+//
+export async function preloadPortraits() {
+  try {
+    const data = await fetchJson("/portraits");
+
+    (data.portraits || []).forEach((src) => {
+      const img = new Image();
+
+      img.src = src;
+      preloaded.push(img);
+    });
+
+    dlog("portraits preloaded:", preloaded.length);
+  } catch (error) {
+    dlog("/portraits error:", error);
+  }
+}
+
 //
 // Cross-fade the avatar to a new image source. A null/empty source is ignored
 // so a failed lookup leaves the current picture in place.

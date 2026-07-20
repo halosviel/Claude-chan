@@ -11,6 +11,13 @@
   <link rel="author" href="humans.txt">
 </head>
 <body>
+  <!-- boot gate: covers the desktop until AivisSpeech is ready (see js/loading.js) -->
+  <div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <p class="loading-hint hidden" id="loading-hint"></p>
+    <button class="loading-skip hidden" id="loading-skip" type="button"></button>
+  </div>
+
   <header class="title">Claude-chan</header>
 
   <!-- the desktop holds the app window(s) -->
@@ -155,6 +162,7 @@
           <li><span data-i18n="help.cancel">Press <kbd>Esc</kbd> to cancel prompt</span></li>
           <li><span data-i18n="help.next">Press <kbd>Space</kbd> / <kbd>→</kbd> or click to go forward</span></li>
           <li><span data-i18n="help.prev">Press <kbd>←</kbd> or right-click to go back</span></li>
+          <li><span data-i18n="help.voices">Startup may take longer the more voices you install</span></li>
         </ul>
       </div>
       <span class="rh rh-nw"></span>
@@ -247,6 +255,26 @@
         <button id="credits-ok" type="button">OK</button>
       </div>
     </div>
+  </div>
+
+  <!-- voice downloads: a normal draggable window (doesn't block the app); one
+       progress row per active download -->
+  <div class="window download-window" id="win-download" style="display:none">
+    <div class="titlebar">
+      <span class="win-title"><span class="ico">⬇</span> Downloads</span>
+      <span class="win-buttons">
+        <button class="win-min" type="button" title="minimize">_</button>
+        <button class="win-max" type="button" title="fullscreen">▣</button>
+        <button class="win-close" type="button" title="close">✕</button>
+      </span>
+    </div>
+    <div class="win-body download-body">
+      <div class="download-list" id="download-list"></div>
+    </div>
+    <span class="rh rh-nw"></span>
+    <span class="rh rh-ne"></span>
+    <span class="rh rh-sw"></span>
+    <span class="rh rh-se"></span>
   </div>
 
   <script type="module" src="js/main.js"></script>

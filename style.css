@@ -928,3 +928,89 @@ body.lang-ja .vn-panel-en { display: none; }
   cursor: pointer;
 }
 .credits-buttons button:hover { background: var(--hover, #ffe6cc); }
+
+/* ---- boot gate: spinner shown until AivisSpeech is ready ---- */
+.loading {
+  position: fixed;
+  inset: 0;
+  z-index: 300000;                    /* above every window, taskbar, and popup */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--dot) 1.6px, transparent 1.7px);
+  background-size: 22px 22px;
+  transition: opacity .4s ease;
+}
+.loading-spinner {
+  width: 54px;
+  height: 54px;
+  border: 6px solid var(--orange-soft);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: loading-spin .8s linear infinite;
+}
+@keyframes loading-spin { to { transform: rotate(360deg); } }
+.loading-hint {
+  margin: 0;
+  max-width: 80vw;
+  text-align: center;
+  font-family: var(--font-sub);
+  font-size: 0.85rem;
+  color: var(--text);
+  opacity: .75;
+}
+.loading-hint.hidden { display: none; }
+.loading-skip {
+  font-family: var(--font-primary);
+  font-size: 0.82rem;
+  padding: 5px 16px;
+  border: 2px solid var(--orange);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.loading-skip:hover { background: var(--hover, #ffe6cc); }
+.loading-skip.hidden { display: none; }
+.loading-done { opacity: 0; pointer-events: none; }
+
+/* ---- voice list: download + delete buttons ---- */
+.voice-uninstalled { justify-content: space-between; opacity: .75; }
+.voice-dl-btn, .voice-del-btn {
+  font-family: var(--font-sub);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 2px 8px;
+  border: 2px solid var(--orange);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.voice-dl-btn:hover, .voice-del-btn:hover { background: var(--hover, #ffe6cc); }
+.voice-del-btn { margin-left: auto; }
+.voice-del-btn.armed { border-color: #c0392b; background: #ffd9d2; }
+
+/* ---- downloads window (draggable, non-blocking) ---- */
+.download-window { position: fixed; width: min(92vw, 320px); height: auto; z-index: 55; animation: win-open .16s ease; }
+.download-body { padding: 12px; max-height: 60vh; overflow-y: auto; }
+.download-list { display: flex; flex-direction: column; gap: 14px; }
+.dl-row { display: flex; flex-direction: column; gap: 5px; }
+.dl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dl-name { font-family: var(--font-primary); font-size: 0.88rem; }
+.dl-dismiss {
+  font-family: var(--font-sub);
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0 6px;
+  border: 2px solid var(--orange);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.dl-dismiss.hidden { display: none; }
+.dl-bar { height: 14px; border: 2px solid var(--orange); background: #fff; overflow: hidden; }
+.dl-fill { height: 100%; width: 0; background: var(--primary); transition: width .2s ease; }
+.dl-row.dl-error .dl-fill { background: #c0392b; }
+.dl-status { font-family: var(--font-sub); font-size: 0.78rem; opacity: .85; }

@@ -21,6 +21,7 @@ import uuid
 from . import config
 from . import images
 from . import voice
+from . import voiceinstall
 from . import chat
 from . import logbuf
 from . import engine
@@ -89,8 +90,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._json({"backgrounds": images.list_backgrounds()})
             return
 
+        if parsed.path == "/portraits":
+            self._json({"portraits": images.list_all_portraits()})
+            return
+
         if parsed.path == "/voices":
-            self._json({"voices": voice.list_voices(), "default": config.AIVIS_SPEAKER})
+            catalog = voice.list_catalog()
+            self._json({
+                "voices": catalog or [],
+                "default": config.AIVIS_SPEAKER,
+                "engine_up": catalog is not None,
+            })
+            return
+
+        if parsed.path == "/voices/install-status":
+            query = urllib.parse.parse_qs(parsed.query)
+            self._json(voiceinstall.status(query.get("uuid", [""])[0]))
             return
 
         if parsed.path == "/logs":
@@ -130,10 +145,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         "image/gif": ".gif", "image/webp": ".webp",
     }
 
-    # Route POST: a pasted image upload, or a chat turn.
+    # Route POST: a pasted image upload, a voice download, or a chat turn.
     def do_POST(self):
         if self.path == "/paste-image":
             self._save_pasted_image()
+            return
+
+        if self.path == "/voices/install":
+            length = int(self.headers.get("Content-Length", 0))
+
+            try:
+                payload = json.loads(self.rfile.read(length) or b"{}")
+            except (json.JSONDecodeError, ValueError):
+                payload = {}
+
+            started = voiceinstall.start_install((payload.get("uuid") or "").strip())
+            self._json({"ok": started})
+            return
+
+        if self.path == "/voices/delete":
+            length = int(self.headers.get("Content-Length", 0))
+
+            try:
+                payload = json.loads(self.rfile.read(length) or b"{}")
+            except (json.JSONDecodeError, ValueError):
+                payload = {}
+
+            ok, error = voiceinstall.uninstall((payload.get("uuid") or "").strip())
+            self._json({"ok": ok, "error": error})
             return
 
         if self.path != "/chat":
