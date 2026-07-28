@@ -50,17 +50,22 @@ def list_voices():
         voices.append({"id": base.get("id"), "name": display})
 
     # label the default voice and move it to the top of the list
+    # Order: the default first, then the other installed voices (all selectable
+    # radios grouped at the top), then the not-installed ones (download rows).
     default = []
-    rest = []
+    installed = []
+    available = []
 
     for voice in voices:
         if voice["id"] == config.AIVIS_SPEAKER:
             voice["name"] = voice["name"] + " (default)"
             default.append(voice)
+        elif voice["installed"]:
+            installed.append(voice)
         else:
-            rest.append(voice)
+            available.append(voice)
 
-    return default + rest
+    return default + installed + available
 
 
 # The set of style ids the engine currently has installed (from /speakers), or
