@@ -53,7 +53,13 @@ let currentImageSrc = null; // the exact portrait src currently shown
 let audioClips = [];      // prepared (decoded) audio per page, fetched up front
 let typingCancel = null;  // cancels the current page's typewriter
 let pageComplete = false; // current page finished typing
+let pageAudioDone = false; // current page's voice finished (or it had none)
+let autoAdvanceTimer = null; // pending auto-advance to the next page
 let onAllDone = null;     // run once the last page completes (reveals permission)
+
+// Pause between auto-advanced pages, so a multi-page reply plays as one flowing
+// message instead of stopping on the first page and waiting for a click.
+const AUTO_ADVANCE_MS = 700;
 
 //
 // Render a partial reply for the typewriter: markdown plus a blinking caret
@@ -154,14 +160,48 @@ function resetToIdle() {
 }
 
 //
+// Cancel a pending auto-advance (a manual navigation or reset supersedes it).
+//
+function clearAutoAdvance() {
+  if (autoAdvanceTimer) {
+    clearTimeout(autoAdvanceTimer);
+    autoAdvanceTimer = null;
+  }
+}
+
+//
+// Auto-play the reply page by page: once the current page has BOTH finished
+// typing and finished speaking, advance to the next one after a short beat, so a
+// multi-page reply is delivered in full without a click. Clicking the stage still
+// skips ahead immediately (advanceReply).
+//
+function maybeAutoAdvance() {
+  clearAutoAdvance();
+
+  if (!pageComplete || !pageAudioDone || segIndex >= segments.length - 1) {
+    return;
+  }
+
+  autoAdvanceTimer = setTimeout(() => {
+    autoAdvanceTimer = null;
+
+    if (pageComplete && segIndex < segments.length - 1) {
+      advanceReply();
+    }
+  }, AUTO_ADVANCE_MS);
+}
+
+//
 // Clear all reply-playback state.
 //
 function resetPlayback() {
+  clearAutoAdvance();
   segments = [];
   audioClips = [];
   segIndex = 0;
   segReached = -1;
   pageComplete = false;
+  pageAudioDone = false;
   typingCancel = null;
   showContinue(false);
 }
@@ -195,6 +235,7 @@ function pageFinished() {
 
   if (segIndex < segments.length - 1) {
     showContinue(true);
+    maybeAutoAdvance();
   } else {
     endReply();
   }
@@ -211,6 +252,8 @@ async function playPage() {
   const seg = segments[index];
 
   pageComplete = false;
+  pageAudioDone = false;
+  clearAutoAdvance();
   showContinue(false);
 
   const audio = await audioClips[index];
@@ -233,9 +276,13 @@ async function playPage() {
   }
 
   if (audio) {
-    playPrepared(audio);
-  } else if ((seg.speech || "").trim() && isVoiceEnabled()) {
-    dlog("voice: expected to speak this page but have no audio clip");
+    playPrepared(audio, { onEnd: () => { pageAudioDone = true; maybeAutoAdvance(); } });
+  } else {
+    pageAudioDone = true;
+
+    if ((seg.speech || "").trim() && isVoiceEnabled()) {
+      dlog("voice: expected to speak this page but have no audio clip");
+    }
   }
 
   segReached = Math.max(segReached, index);
@@ -257,6 +304,8 @@ async function playPage() {
 //
 function showPage(index) {
   const editor = getEditorElement();
+
+  clearAutoAdvance();
 
   if (typingCancel) {
     typingCancel();
