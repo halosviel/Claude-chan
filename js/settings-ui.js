@@ -141,14 +141,10 @@ function voiceRadio(voice, chosen, list) {
 }
 
 //
-// A trash button that removes a voice. It arms on the first click (to avoid an
-// accidental delete + big re-download) and only deletes on a second click within
-// a few seconds.
+// A trash button that removes a voice on a single click.
 //
 function deleteButton(voice, list) {
   const button = document.createElement("button");
-  let armed = false;
-  let timer = null;
 
   button.type = "button";
   button.className = "voice-del-btn";
@@ -157,20 +153,6 @@ function deleteButton(voice, list) {
   button.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-
-    if (!armed) {
-      armed = true;
-      button.classList.add("armed");
-      button.title = "click again to remove";
-      timer = setTimeout(() => {
-        armed = false;
-        button.classList.remove("armed");
-        button.title = "remove this voice";
-      }, 3000);
-      return;
-    }
-
-    clearTimeout(timer);
     deleteVoice(voice, list);
   });
 
