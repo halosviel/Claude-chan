@@ -11,6 +11,11 @@ import os
 import re
 import uuid
 
+# Mark every claude process this app spawns (SDK or subprocess) so the user's
+# Stop-hook notifier can tell "Claude-chan replied" apart from a real Claude Code
+# session and stay silent -- her replies aren't notifications for the user.
+os.environ["CLAUDE_CHAN_APP"] = "1"
+
 # Network + filesystem layout. ROOT is the project directory (this package's
 # parent), which is also what the static file server serves.
 PORT = 8765
