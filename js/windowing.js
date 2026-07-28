@@ -391,6 +391,11 @@ export function initWindowing() {
     makeDraggable(win);
     makeResizable(win);
 
+    // Raise a window on a press anywhere inside it (not just the titlebar), so
+    // clicking its body focuses it. Capture phase so it fires even when an inner
+    // control stops propagation; z-index only, so it never disturbs the click.
+    win.addEventListener("mousedown", () => bringToFront(win), true);
+
     const min = win.querySelector(".win-min");
     const max = win.querySelector(".win-max");
     const close = win.querySelector(".win-close");
