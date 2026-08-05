@@ -42,7 +42,9 @@ Crawl-delay: 10
 #   GET  /image?emotion=<e>      -> {emotion, image}
 #   GET  /models                 -> {models:[{id,label}], default}
 #   GET  /tts                    -> {server: bool, engine: "aivisspeech"|null}
-#   GET  /speak?text=<jp>        -> WAV bytes (503 if the engine is down)
+#   GET  /speak?text=<jp>&mood=<m>  -> WAV bytes (503 if the engine is down).
+#                                mood picks a MOOD_VOICE profile (config.py);
+#                                renders are cached in .speech-cache/
 #   GET  /backgrounds            -> {backgrounds: [filenames]}
 #   POST /chat {message, model?} -> {emotion, text, speech, permission, image}
 #
@@ -55,14 +57,16 @@ Crawl-delay: 10
 #   js/markdown.js        live-markdown renderer; KEEPS every source character
 #                         (markers wrapped in dimmed spans, NUL-sentinel stash)
 #   js/windowing.js       draggable/resizable/minimizable windows + taskbar
+#   js/layout.js          remembers each window's place/size/state (localStorage)
 #   js/startmenu.js       the XP-style Start menu
 #   js/clock.js           taskbar clock + uptime
 #   js/avatar.js          portrait cross-fade, setEmotion, size cap
 #   js/backgrounds.js     scene picker
-#   js/voice.js           /tts status, prepareSpeech, playPrepared, stopAudio;
-#                         rendered clips are cached (blob per voice+line) so a
-#                         line can be replayed without a second synthesis
-#   js/transcript.js      the backlog window; her rows carry a replay button
+#   js/voice.js           /tts status, prepareSpeech(text, mood), playPrepared,
+#                         stopAudio; clips cached per voice+mood+line so a line
+#                         can be replayed without a second synthesis
+#   js/transcript.js      the backlog: persisted across reloads (localStorage),
+#                         session pills, and a replay button on her rows
 #   js/models.js          model dropdown (persisted in localStorage)
 #   js/editor.js          THE BOX: input composer AND reply surface; own undo,
 #                         input<->reply mode transitions

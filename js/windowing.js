@@ -193,7 +193,7 @@ function taskButtonFor(win) {
 //
 // Reflect a window's open/closed state on its taskbar button.
 //
-function setTaskActive(win, active) {
+export function setTaskActive(win, active) {
   const button = taskButtonFor(win);
 
   if (button) {

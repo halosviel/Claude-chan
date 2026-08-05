@@ -33,9 +33,19 @@ def _backend_signature():
     return tuple(sorted((p, os.path.getmtime(p)) for p in files if os.path.exists(p)))
 
 
-# Watch the backend files and re-exec the process when one changes, so editing
+# Set by the file watcher when a backend edit needs a restart; main() does the
+# actual re-exec once the server has stopped.
+_restart_pending = threading.Event()
+
+
+# Watch the backend files and ask main() to re-exec when one changes, so editing
 # Python takes effect without a manual restart. Disable with CLAUDECHAN_RELOAD=0.
-def _watch_and_restart():
+#
+# The exec is handed back to main() on purpose. execv from a worker thread wipes
+# out the main thread, and the kernel then delivers the engine's PR_SET_PDEATHSIG
+# -- so every backend edit used to kill AivisSpeech and leave her mute for the
+# rest of the session. Re-exec'ing on the thread that spawned it keeps it alive.
+def _watch_and_restart(httpd):
     last = _backend_signature()
 
     while True:
@@ -49,7 +59,9 @@ def _watch_and_restart():
         if current != last:
             logbuf.add("reload: backend changed -> restarting")
             print("reloading (a backend file changed)...")
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+            _restart_pending.set()
+            httpd.shutdown()
+            return
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -123,7 +135,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if parsed.path == "/speak":
             query = urllib.parse.parse_qs(parsed.query)
             speaker = query.get("speaker", [None])[0]
-            wav = voice.synth_wav(query.get("text", [""])[0], speaker)
+            mood = query.get("mood", [""])[0]
+            wav = voice.synth_wav(query.get("text", [""])[0], speaker, mood)
 
             if wav is None:
                 logbuf.add("speak: TTS unavailable (engine down or synth failed)")
@@ -270,7 +283,7 @@ def main():
     # Auto-restart on backend edits (unless disabled) so Python changes apply
     # without a manual restart. The page is refreshed by hand (no live-reload).
     if os.environ.get("CLAUDECHAN_RELOAD") != "0":
-        threading.Thread(target=_watch_and_restart, daemon=True).start()
+        threading.Thread(target=_watch_and_restart, args=(httpd,), daemon=True).start()
 
     # Pre-connect the warm chat session so the first reply skips the connect cost.
     chat.warm_up()
@@ -283,3 +296,8 @@ def main():
             httpd.serve_forever()
         except KeyboardInterrupt:
             print("\nbye~")
+
+    # A backend edit landed: re-exec here, on the main thread, so the AivisSpeech
+    # engine survives into the new process (see _watch_and_restart).
+    if _restart_pending.is_set():
+        os.execv(sys.executable, [sys.executable] + sys.argv)

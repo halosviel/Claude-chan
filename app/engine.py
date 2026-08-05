@@ -61,15 +61,22 @@ def _die_with_parent():
 def start():
     global _proc
 
-    if voice.engine_up():
-        logbuf.add("engine: AivisSpeech already running; leaving it as-is")
-        return
-
+    # Whether an engine is actually SERVING decides if we need to launch one;
+    # the carried pid only says whose it is. Checking the pid alone isn't enough
+    # -- a crashed engine we started is left unreaped, so its pid still "exists".
     carried = os.environ.get(_PID_ENV, "")
-    if carried.isdigit() and _alive(int(carried)):
+    serving = voice.engine_up()
+
+    if serving and carried.isdigit() and _alive(int(carried)):
         logbuf.add("engine: re-attached to AivisSpeech pid %s after reload" % carried)
         _install_cleanup()
         return
+
+    if serving:
+        logbuf.add("engine: AivisSpeech already running; leaving it as-is")
+        return
+
+    os.environ.pop(_PID_ENV, None)
 
     try:
         _proc = subprocess.Popen(

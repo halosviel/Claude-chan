@@ -7,7 +7,11 @@
 #  and log the reason to the console, leaving the app silent.
 # ===========================================================================
 
+import glob
+import hashlib
 import json
+import os
+import time
 import urllib.parse
 import urllib.request
 
@@ -125,10 +129,101 @@ def engine_up():
         return False
 
 
+# The engine's speaker list, cached briefly: a mood style is looked up per
+# synthesis, and /speakers is slow enough to matter across a multi-page reply.
+# The TTL is short so a voice installed mid-session still turns up.
+_speakers_cache = (0.0, None)
+_SPEAKERS_TTL = 60.0
+
+
+# Return the engine's /speakers payload, served from the cache while fresh.
+def _speakers():
+    global _speakers_cache
+
+    stamp, cached = _speakers_cache
+
+    if cached is not None and time.time() - stamp < _SPEAKERS_TTL:
+        return cached
+
+    try:
+        with urllib.request.urlopen(config.AIVIS_URL + "/speakers", timeout=3) as response:
+            speakers = json.loads(response.read())
+    except Exception as error:
+        log("could not list voices: %s" % error)
+        return []
+
+    _speakers_cache = (time.time(), speakers)
+    return speakers
+
+
+# The style id a mood should be spoken with: the style named `style_name` on the
+# same voice as `speaker`, or `speaker` unchanged when that voice hasn't got one
+# (Runa is single-style, so her moods ride on the query knobs alone).
+def _style_for(speaker, style_name):
+    if not style_name:
+        return speaker
+
+    for entry in _speakers():
+        styles = entry.get("styles", [])
+
+        if not any(style.get("id") == speaker for style in styles):
+            continue
+
+        for style in styles:
+            if style.get("name") == style_name:
+                return style.get("id", speaker)
+
+        return speaker
+
+    return speaker
+
+
+# Where a rendered line is cached. The key covers everything that shapes the
+# audio -- the text, the style speaking it, and the mood knobs -- so retuning a
+# mood (or switching voice) can never serve the previous take.
+def _cache_path(text, style, profile):
+    seed = json.dumps([text, style, profile], sort_keys=True, ensure_ascii=False)
+    digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()
+
+    return os.path.join(config.SPEECH_CACHE_DIR, digest + ".wav")
+
+
+# Read a cached render, or None when it isn't there (or can't be read).
+def _cache_read(path):
+    try:
+        with open(path, "rb") as handle:
+            return handle.read()
+    except OSError:
+        return None
+
+
+# Store a render, then keep the cache bounded: once it is over the file limit
+# the oldest renders are dropped back down to it.
+def _cache_write(path, wav):
+    try:
+        os.makedirs(config.SPEECH_CACHE_DIR, exist_ok=True)
+
+        with open(path, "wb") as handle:
+            handle.write(wav)
+
+        files = glob.glob(os.path.join(config.SPEECH_CACHE_DIR, "*.wav"))
+        excess = len(files) - config.SPEECH_CACHE_MAX_FILES
+
+        if excess > 0:
+            files.sort(key=os.path.getmtime)
+
+            for stale in files[:excess]:
+                os.remove(stale)
+    except OSError as error:
+        log("could not cache speech: %s" % error)
+
+
 # Render Japanese text to WAV bytes via AivisSpeech (audio_query then synthesis),
-# using `speaker` (style id) or the configured default. Returns None, logging the
-# reason, on empty text or any engine error.
-def synth_wav(text, speaker=None):
+# using `speaker` (style id) or the configured default, acted in `mood` (a key of
+# config.MOOD_VOICE -- see it for how a mood shapes the voice). Renders are cached
+# on disk, so a line she has already said comes back instantly, reload or not.
+# Returns None, logging the reason, on empty text or any engine error.
+def synth_wav(text, speaker=None, mood=None):
     # collapse newlines to spaces -- AivisSpeech otherwise stops at the first one
     text = " ".join((text or "").split("\n")).strip()
 
@@ -140,17 +235,30 @@ def synth_wav(text, speaker=None):
     except (TypeError, ValueError):
         speaker = config.AIVIS_SPEAKER
 
+    profile = config.MOOD_VOICE.get((mood or "").strip().lower(), {})
+    style = _style_for(speaker, profile.get("style"))
+    path = _cache_path(text, style, profile)
+    cached = _cache_read(path)
+
+    if cached:
+        return cached
+
     try:
         query_url = "%s/audio_query?speaker=%d&text=%s" % (
-            config.AIVIS_URL, speaker, urllib.parse.quote(text))
+            config.AIVIS_URL, style, urllib.parse.quote(text))
         query_request = urllib.request.Request(query_url, method="POST")
 
         with urllib.request.urlopen(query_request, timeout=15) as response:
-            query = response.read()
+            query = json.loads(response.read())
 
-        synth_url = "%s/synthesis?speaker=%d" % (config.AIVIS_URL, speaker)
+        # only the knobs the engine actually offers ("style" is not one of them)
+        for key, value in profile.items():
+            if key in query:
+                query[key] = value
+
+        synth_url = "%s/synthesis?speaker=%d" % (config.AIVIS_URL, style)
         synth_request = urllib.request.Request(
-            synth_url, data=query, method="POST",
+            synth_url, data=json.dumps(query).encode("utf-8"), method="POST",
             headers={"Content-Type": "application/json"})
 
         with urllib.request.urlopen(synth_request, timeout=30) as response:
@@ -159,6 +267,8 @@ def synth_wav(text, speaker=None):
         if not wav:
             log("AivisSpeech returned empty audio.")
             return None
+
+        _cache_write(path, wav)
 
         return wav
     except Exception as error:

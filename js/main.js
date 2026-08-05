@@ -12,6 +12,7 @@ import { initTerminal } from "./log.js";
 import { initServerLog } from "./serverlog.js";
 import { initI18n } from "./i18n.js";
 import { initWindowing } from "./windowing.js";
+import { initLayout } from "./layout.js";
 import { initStartMenu } from "./startmenu.js";
 import { initClock } from "./clock.js";
 import { initDateBox } from "./datebox.js";
@@ -64,6 +65,7 @@ async function main() {
   initMemory();
   initSettings();
   initInputGate();
+  initLayout();
   preloadSounds();
   preloadPortraits();
   setEmotion("idle");

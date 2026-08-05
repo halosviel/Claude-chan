@@ -93,27 +93,28 @@ async function pollEngineReady() {
   }
 }
 
-// Rendered clips, keyed by the voice that spoke them plus the Japanese line, so
-// a line she has already said can be played again without paying for another
-// synthesis. The BLOB is what is kept -- not the Audio element, whose object URL
-// is revoked the moment it finishes -- and the least recently used clip is
-// dropped once the cache is full.
+// Rendered clips, keyed by the voice, the mood it was acted in and the Japanese
+// line, so a line she has already said can be played again without paying for
+// another synthesis. The BLOB is what is kept -- not the Audio element, whose
+// object URL is revoked the moment it finishes -- and the least recently used
+// clip is dropped once the cache is full. The server keeps its own copy on
+// disk, so a reload only costs the download, never a re-render.
 const clipCache = new Map();
 const CLIP_CACHE_MAX = 50;
 
 //
-// Key a clip by the voice that rendered it, so switching voices re-synthesizes
-// rather than replaying the old voice's take.
+// Key a clip by the voice and mood that rendered it, so switching either one
+// re-synthesizes rather than replaying the old take.
 //
-function clipKey(text) {
-  return getVoiceId() + "\n" + text;
+function clipKey(text, mood) {
+  return getVoiceId() + "|" + (mood || "") + "|" + text;
 }
 
 //
 // Remember a rendered clip, evicting the least recently used once full.
 //
-function cacheClip(text, blob) {
-  const key = clipKey(text);
+function cacheClip(text, mood, blob) {
+  const key = clipKey(text, mood);
 
   clipCache.delete(key);
   clipCache.set(key, blob);
@@ -138,18 +139,19 @@ function audioFromBlob(blob) {
 
 //
 // Fetch and fully decode a clip for `text` so it can start the instant the
-// reply appears (no lag while the server synthesizes). Returns a ready Audio
-// element, or null when muted / unavailable / failed. A cached clip is reused
-// as-is, which is what makes replaying a line instant -- and keeps it working
-// even after the engine has gone away.
+// reply appears (no lag while the server synthesizes). `mood` is the page's
+// mood tag -- the server acts the line in it (see MOOD_VOICE in app/config.py).
+// Returns a ready Audio element, or null when muted / unavailable / failed. A
+// cached clip is reused as-is, which is what makes replaying a line instant --
+// and keeps it working even after the engine has gone away.
 //
-export async function prepareSpeech(text) {
+export async function prepareSpeech(text, mood) {
   if (!text) {
     dlog("prepareSpeech: skipped (empty text)");
     return null;
   }
 
-  const cached = clipCache.get(clipKey(text));
+  const cached = clipCache.get(clipKey(text, mood));
 
   if (cached) {
     dlog("prepareSpeech: cache hit,", text.length, "chars");
@@ -162,11 +164,13 @@ export async function prepareSpeech(text) {
   }
 
   try {
-    dlog("prepareSpeech: fetching /speak,", text.length, "chars");
+    dlog("prepareSpeech: fetching /speak,", text.length, "chars, mood", mood || "-");
 
     const voiceId = getVoiceId();
     const speakerParam = voiceId ? "&speaker=" + encodeURIComponent(voiceId) : "";
-    const response = await fetch("/speak?text=" + encodeURIComponent(text) + speakerParam);
+    const moodParam = mood ? "&mood=" + encodeURIComponent(mood) : "";
+    const response = await fetch(
+      "/speak?text=" + encodeURIComponent(text) + speakerParam + moodParam);
 
     dlog("prepareSpeech: /speak status", response.status);
 
@@ -176,7 +180,7 @@ export async function prepareSpeech(text) {
 
     const blob = await response.blob();
 
-    cacheClip(text, blob);
+    cacheClip(text, mood, blob);
 
     return audioFromBlob(blob);
   } catch (error) {

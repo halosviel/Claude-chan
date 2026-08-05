@@ -26,6 +26,14 @@ BACKGROUNDS_DIR = os.path.join(ROOT, "assets", "backgrounds")
 # cwd, can view them). Gitignored; cleared with the project.
 PASTE_DIR = os.path.join(ROOT, ".uploads")
 
+# Rendered speech is cached here, one .wav per (line, style, mood). It makes
+# replaying a line from the backlog free -- across reloads too, since this
+# outlives the page. Gitignored and safe to delete at any time; the cache key
+# covers MOOD_VOICE, so retuning a mood renders again instead of serving the
+# old take.
+SPEECH_CACHE_DIR = os.path.join(ROOT, ".speech-cache")
+SPEECH_CACHE_MAX_FILES = 400
+
 # One conversation per server run; reused so the claude CLI keeps context.
 SESSION_ID = str(uuid.uuid4())
 
@@ -67,6 +75,32 @@ CLAUDE_CWD = os.environ.get("CLAUDE_CWD", ROOT)
 # fallback; if it is down the app stays silent. List voices with :10101/speakers.
 AIVIS_URL = os.environ.get("AIVIS_URL", "http://127.0.0.1:10101")
 AIVIS_SPEAKER = int(os.environ.get("AIVIS_SPEAKER", "345585728"))
+
+# How each mood is SPOKEN. Two levers, applied together by voice.synth_wav():
+#  - the audio_query knobs -- speedScale, pitchScale, intonationScale (how
+#    strongly the voice acts), tempoDynamicsScale (how much the pacing moves)
+#    and volumeScale. AivisSpeech 1.2 honours all of them.
+#  - "style": an AivisSpeech style name preferred over the voice's Normal one.
+#    It is used ONLY when the selected voice actually has that style -- Mao and
+#    Kohaku do; Runa is single-style, so for her the knobs carry the whole mood.
+# Keep pitchScale small (about +/-0.06); beyond that the shift turns metallic.
+# Editing this table re-renders her lines: the speech cache is keyed by it.
+MOOD_VOICE = {
+    "happy": {"speedScale": 1.05, "pitchScale": 0.03, "intonationScale": 1.25,
+              "tempoDynamicsScale": 1.1, "style": "あまあま"},
+    "laughing": {"speedScale": 1.08, "pitchScale": 0.04, "intonationScale": 1.4,
+                 "tempoDynamicsScale": 1.15, "style": "からかい"},
+    "embarrassed": {"speedScale": 1.03, "pitchScale": 0.05, "intonationScale": 1.15,
+                    "tempoDynamicsScale": 1.05, "volumeScale": 0.9},
+    "angry": {"speedScale": 1.08, "pitchScale": -0.02, "intonationScale": 1.45,
+              "tempoDynamicsScale": 1.2, "volumeScale": 1.12},
+    "sad": {"speedScale": 0.9, "pitchScale": -0.03, "intonationScale": 0.85,
+            "tempoDynamicsScale": 0.9, "volumeScale": 0.95, "style": "せつなめ"},
+    "idle": {"speedScale": 0.97, "pitchScale": -0.01, "intonationScale": 0.9,
+             "tempoDynamicsScale": 0.95, "style": "おちつき"},
+    # her default register -- left at the engine's own defaults
+    "talking": {},
+}
 
 # Romanised display names for the voice picker (engine names are Japanese).
 # Unlisted voices/styles keep their original name.

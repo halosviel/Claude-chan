@@ -154,6 +154,13 @@ body.has-fullscreen .title { display: none; }
   cursor: pointer;
 }
 .win-buttons button:hover { background: #ffe0bf; }
+/* the backlog titlebar carries a wider text button beside the window controls */
+.win-buttons .win-clear {
+  width: auto;
+  padding: 0 6px;
+  font-family: var(--font-sub);
+  font-size: 0.62rem;
+}
 
 /* window content fills + scales with the window */
 .app-body {

@@ -1,26 +1,39 @@
 // ===========================================================================
 //  transcript.js
 //
-//  Keeps an in-memory log of the conversation and shows it in a messaging-app
-//  style popup. Your messages sit on the left, Claude-chan's on the right, each
-//  labelled. The log is rendered only when the popup opens (and rebuilt from a
-//  DocumentFragment in one pass), so recording a turn costs nothing until then.
-//  Her messages also carry the Japanese line she spoke for them, so each one
-//  gets a play button that says it again -- instantly while voice.js still
-//  holds the clip, re-synthesized once it has dropped it.
+//  Keeps a log of the conversation and shows it in a messaging-app style popup.
+//  Your messages sit on the left, Claude-chan's on the right, each labelled. The
+//  log is rendered only when the popup opens (and rebuilt from a DocumentFragment
+//  in one pass), so recording a turn costs nothing until then.
+//
+//  The log SURVIVES RELOADS (localStorage), so it spans sessions: every turn
+//  remembers which session it belongs to and a "Session started" pill is drawn
+//  wherever that changes. Her messages also carry the Japanese line she spoke and
+//  the mood she spoke it in, so each one gets a play button that says it again --
+//  instantly while a clip is cached, re-rendered by the server otherwise.
 // ===========================================================================
 
 import { qs } from "./util/dom.js";
+import { playSound } from "./util/sound.js";
 import { formatClock, formatRelativeTime } from "./util/time.js";
 import { buildHtml } from "./markdown.js";
 import { showWindow, hideWindow } from "./windowing.js";
 import { t, onChange } from "./i18n.js";
 import { prepareSpeech, playPrepared, stopAudio } from "./voice.js";
 
-// The conversation so far, and when this session began. winEl/logEl are the
-// popup window and its log, resolved at init so live updates can target them.
+// Where the backlog is kept between runs. STORE_VERSION guards the shape of it:
+// bump it when a turn gains or loses fields and stale logs are dropped instead
+// of being half-read by newer code. STORE_MAX caps how much is carried over.
+const STORE_KEY = "claudechan.transcript";
+const STORE_VERSION = 1;
+const STORE_MAX = 300;
+
+// The conversation so far, and when this run began (turns record it, so restored
+// ones keep pointing at the session they were said in). winEl/logEl are the popup
+// window and its log, resolved at init so live updates can target them.
 const turns = [];
 const sessionStart = new Date();
+const sessionStamp = sessionStart.getTime();
 let winEl = null;
 let logEl = null;
 
@@ -30,6 +43,47 @@ let logEl = null;
 let playingTurn = null;
 let playingButton = null;
 let replayToken = 0;
+
+//
+// Load the stored backlog, dropping it if it was written by another version.
+// Times come back as Dates; anything unreadable just starts an empty log.
+//
+function loadTurns() {
+  let stored = null;
+
+  try {
+    stored = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+  } catch (error) {
+    stored = null;
+  }
+
+  if (!stored || stored.v !== STORE_VERSION || !Array.isArray(stored.turns)) {
+    return;
+  }
+
+  stored.turns.forEach((turn) => {
+    turns.push(Object.assign({}, turn, { time: new Date(turn.time) }));
+  });
+}
+
+//
+// Persist the backlog (most recent STORE_MAX turns), tolerating storage being
+// unavailable or full -- the log still works for this run, it just won't carry.
+//
+function saveTurns() {
+  const payload = {
+    v: STORE_VERSION,
+    turns: turns.slice(-STORE_MAX).map((turn) => Object.assign({}, turn, {
+      time: turn.time ? turn.time.getTime() : Date.now(),
+    })),
+  };
+
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    // storage unavailable or over quota; this run's log is unaffected
+  }
+}
 
 //
 // True when the transcript popup is currently open.
@@ -43,7 +97,9 @@ function isOpen() {
 //
 function pushTurn(turn) {
   turn.time = new Date();
+  turn.session = sessionStamp;
   turns.push(turn);
+  saveTurns();
 
   if (logEl && isOpen()) {
     logEl.appendChild(buildMessage(turn));
@@ -61,6 +117,7 @@ export function popTurn() {
   }
 
   turns.pop();
+  saveTurns();
 
   if (logEl && isOpen() && logEl.lastElementChild) {
     logEl.removeChild(logEl.lastElementChild);
@@ -76,10 +133,11 @@ export function recordUser(text) {
 
 //
 // Record one of Claude-chan's replies, together with the Japanese line she
-// speaks for it -- that line is what the replay button plays back.
+// speaks for it and the mood she says it in -- that pair is what the replay
+// button hands back to the server, so a replay sounds exactly like the original.
 //
-export function recordClaude(text, speech) {
-  pushTurn({ role: "claude", text, speech: (speech || "").trim() });
+export function recordClaude(text, speech, mood) {
+  pushTurn({ role: "claude", text, speech: (speech || "").trim(), mood: mood || "" });
 }
 
 //
@@ -120,7 +178,7 @@ async function toggleReplay(button, turn) {
   playingButton = button;
   button.classList.add("playing");
 
-  const audio = await prepareSpeech(turn.speech);
+  const audio = await prepareSpeech(turn.speech, turn.mood);
 
   if (token !== replayToken) {
     return;
@@ -159,16 +217,28 @@ function buildReplayButton(turn) {
 }
 
 //
-// Build the "Session started <time>" pill shown centered at the top.
+// Label a session pill: just the clock time for today, and the day as well for
+// the older sessions the backlog now keeps.
 //
-function buildSessionMarker() {
+function sessionLabel(date) {
+  const relative = formatRelativeTime(date);
+  const clock = formatClock(date);
+
+  return relative === clock ? clock : relative + " · " + clock;
+}
+
+//
+// Build a "Session started <time>" pill, shown centered wherever the log crosses
+// from one session into the next.
+//
+function buildSessionMarker(stamp) {
   const marker = document.createElement("div");
   const time = document.createElement("span");
 
   marker.className = "transcript-start";
   marker.textContent = t("transcript.start") + " ";
   time.className = "t-time";
-  time.textContent = formatClock(sessionStart);
+  time.textContent = sessionLabel(new Date(stamp));
   marker.appendChild(time);
 
   return marker;
@@ -210,14 +280,29 @@ function buildMessage(turn) {
 }
 
 //
-// Rebuild the whole transcript into the log element in a single DOM insertion.
+// Rebuild the whole transcript into the log element in a single DOM insertion,
+// starting a new session pill whenever the turns cross into another run. This
+// run's pill is drawn last when it has nothing in it yet, so the first live
+// message of the session lands under a marker that is already there.
 //
 function render(log) {
   const fragment = document.createDocumentFragment();
+  let session = null;
 
   playingButton = null;
-  fragment.appendChild(buildSessionMarker());
-  turns.forEach((turn) => fragment.appendChild(buildMessage(turn)));
+
+  turns.forEach((turn) => {
+    if (turn.session !== session) {
+      session = turn.session;
+      fragment.appendChild(buildSessionMarker(session || turn.time.getTime()));
+    }
+
+    fragment.appendChild(buildMessage(turn));
+  });
+
+  if (session !== sessionStamp) {
+    fragment.appendChild(buildSessionMarker(sessionStamp));
+  }
 
   log.innerHTML = "";
   log.appendChild(fragment);
@@ -225,17 +310,45 @@ function render(log) {
 }
 
 //
-// Wire the Transcripts "View" button to TOGGLE the popup: open (and render) it
-// when closed, hide it when open. Called once at startup.
+// Empty the backlog for good: this run's turns and everything carried over.
+//
+function clearTurns() {
+  playSound("click");
+  stopAudio();
+  clearPlaying();
+  turns.length = 0;
+
+  try {
+    localStorage.removeItem(STORE_KEY);
+  } catch (error) {
+    // storage unavailable; the in-memory log is cleared either way
+  }
+
+  if (logEl) {
+    render(logEl);
+  }
+}
+
+//
+// Restore the stored backlog and wire the Transcripts "View" button to TOGGLE
+// the popup: open (and render) it when closed, hide it when open. The titlebar's
+// clear button empties the log. Called once at startup.
 //
 export function initTranscript() {
   const button = qs("#transcript-view");
+  const clear = qs("#transcript-clear");
 
   winEl = qs("#win-transcript");
   logEl = qs("#transcript-log");
 
+  loadTurns();
+
   if (!button || !winEl || !logEl) {
     return;
+  }
+
+  if (clear) {
+    clear.addEventListener("click", clearTurns);
   }
 
   // re-render the (translatable) labels if the language changes while open

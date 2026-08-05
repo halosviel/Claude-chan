@@ -272,7 +272,7 @@ async function playPage() {
   // Record this page to the backlog only as she actually starts speaking it, so
   // the transcript stays in step with her voice and the dialogue box.
   if ((seg.text || "").trim()) {
-    recordClaude(seg.text, seg.speech);
+    recordClaude(seg.text, seg.speech, seg.emotion);
   }
 
   if (audio) {
@@ -413,13 +413,14 @@ export function cancelResponding() {
 // them all at once made AivisSpeech run several neural TTS jobs in parallel,
 // saturating the CPU and stuttering the desktop. Each returned promise resolves
 // to its page's decoded audio, and each synthesis starts only after the previous
-// one finishes -- which still keeps ahead of the page-by-page playback.
+// one finishes -- which still keeps ahead of the page-by-page playback. Each page
+// is voiced in ITS OWN mood, so a reply that turns sad partway through sounds it.
 //
 function prefetchSpeech(pages) {
   let chain = Promise.resolve(null);
 
   return pages.map((page) => {
-    chain = chain.then(() => prepareSpeech(page.speech || ""));
+    chain = chain.then(() => prepareSpeech(page.speech || "", page.emotion));
     return chain;
   });
 }
