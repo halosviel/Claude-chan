@@ -76,6 +76,11 @@ CLAUDE_CWD = os.environ.get("CLAUDE_CWD", ROOT)
 AIVIS_URL = os.environ.get("AIVIS_URL", "http://127.0.0.1:10101")
 AIVIS_SPEAKER = int(os.environ.get("AIVIS_SPEAKER", "345585728"))
 
+# Whether she ACTS her moods (below) or just speaks in her plain voice. Off: the
+# table is kept and still wired up, so flipping this to True is all it takes to
+# have her act again.
+MOOD_ACTING = False
+
 # How each mood is SPOKEN. Two levers, applied together by voice.synth_wav():
 #  - the audio_query knobs -- speedScale, pitchScale, intonationScale (how
 #    strongly the voice acts), tempoDynamicsScale (how much the pacing moves)

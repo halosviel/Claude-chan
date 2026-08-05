@@ -138,6 +138,9 @@ per-run: `AIVIS_SPEAKER=<id> python3 server.py`.
 
 
 ### How a mood is spoken (`MOOD_VOICE` in `app/config.py`)
+**Currently OFF** (`MOOD_ACTING = False`): she speaks in her plain voice. Flip
+it to `True` to have her act; everything below stays wired up either way.
+
 Every reply page carries its own mood tag, and that mood is sent along to
 `/speak`, so a reply that shifts partway through actually *sounds* like it.
 `voice.synth_wav()` applies a mood two ways:

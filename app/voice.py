@@ -235,7 +235,11 @@ def synth_wav(text, speaker=None, mood=None):
     except (TypeError, ValueError):
         speaker = config.AIVIS_SPEAKER
 
-    profile = config.MOOD_VOICE.get((mood or "").strip().lower(), {})
+    profile = {}
+
+    if config.MOOD_ACTING:
+        profile = config.MOOD_VOICE.get((mood or "").strip().lower(), {})
+
     style = _style_for(speaker, profile.get("style"))
     path = _cache_path(text, style, profile)
     cached = _cache_read(path)
