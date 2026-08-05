@@ -4,7 +4,9 @@
 //  Server-rendered speech (AivisSpeech). There is no browser fallback: if the
 //  engine is not running the app stays silent and shows a hint. Audio is fully
 //  decoded up front (prepareSpeech) so it can begin in sync with the typed-out
-//  reply, and only one clip plays at a time.
+//  reply, and only one clip plays at a time. Rendered clips are kept in a
+//  small cache, so a line she has already said can be replayed for free (the
+//  backlog does exactly that).
 // ===========================================================================
 
 import { qs, fetchJson } from "./util/dom.js";
@@ -91,19 +93,71 @@ async function pollEngineReady() {
   }
 }
 
+// Rendered clips, keyed by the voice that spoke them plus the Japanese line, so
+// a line she has already said can be played again without paying for another
+// synthesis. The BLOB is what is kept -- not the Audio element, whose object URL
+// is revoked the moment it finishes -- and the least recently used clip is
+// dropped once the cache is full.
+const clipCache = new Map();
+const CLIP_CACHE_MAX = 50;
+
+//
+// Key a clip by the voice that rendered it, so switching voices re-synthesizes
+// rather than replaying the old voice's take.
+//
+function clipKey(text) {
+  return getVoiceId() + "\n" + text;
+}
+
+//
+// Remember a rendered clip, evicting the least recently used once full.
+//
+function cacheClip(text, blob) {
+  const key = clipKey(text);
+
+  clipCache.delete(key);
+  clipCache.set(key, blob);
+
+  if (clipCache.size > CLIP_CACHE_MAX) {
+    clipCache.delete(clipCache.keys().next().value);
+  }
+}
+
+//
+// Wrap a cached clip in a fresh Audio element, freeing its object URL when the
+// clip ends. A new element is built per playback because that URL is one-shot.
+//
+function audioFromBlob(blob) {
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+
+  audio.onended = audio.onerror = () => URL.revokeObjectURL(url);
+
+  return audio;
+}
+
 //
 // Fetch and fully decode a clip for `text` so it can start the instant the
 // reply appears (no lag while the server synthesizes). Returns a ready Audio
-// element, or null when muted / unavailable / failed.
+// element, or null when muted / unavailable / failed. A cached clip is reused
+// as-is, which is what makes replaying a line instant -- and keeps it working
+// even after the engine has gone away.
 //
 export async function prepareSpeech(text) {
-  if (!serverVoiceReady) {
-    dlog("prepareSpeech: skipped (no server voice)");
+  if (!text) {
+    dlog("prepareSpeech: skipped (empty text)");
     return null;
   }
 
-  if (!text) {
-    dlog("prepareSpeech: skipped (empty text)");
+  const cached = clipCache.get(clipKey(text));
+
+  if (cached) {
+    dlog("prepareSpeech: cache hit,", text.length, "chars");
+    return audioFromBlob(cached);
+  }
+
+  if (!serverVoiceReady) {
+    dlog("prepareSpeech: skipped (no server voice)");
     return null;
   }
 
@@ -120,12 +174,11 @@ export async function prepareSpeech(text) {
       return null;
     }
 
-    const url = URL.createObjectURL(await response.blob());
-    const audio = new Audio(url);
+    const blob = await response.blob();
 
-    audio.onended = audio.onerror = () => URL.revokeObjectURL(url);
+    cacheClip(text, blob);
 
-    return audio;
+    return audioFromBlob(blob);
   } catch (error) {
     dlog("prepareSpeech: error", error);
     return null;

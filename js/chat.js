@@ -272,7 +272,7 @@ async function playPage() {
   // Record this page to the backlog only as she actually starts speaking it, so
   // the transcript stays in step with her voice and the dialogue box.
   if ((seg.text || "").trim()) {
-    recordClaude(seg.text);
+    recordClaude(seg.text, seg.speech);
   }
 
   if (audio) {

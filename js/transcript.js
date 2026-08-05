@@ -5,6 +5,9 @@
 //  style popup. Your messages sit on the left, Claude-chan's on the right, each
 //  labelled. The log is rendered only when the popup opens (and rebuilt from a
 //  DocumentFragment in one pass), so recording a turn costs nothing until then.
+//  Her messages also carry the Japanese line she spoke for them, so each one
+//  gets a play button that says it again -- instantly while voice.js still
+//  holds the clip, re-synthesized once it has dropped it.
 // ===========================================================================
 
 import { qs } from "./util/dom.js";
@@ -12,6 +15,7 @@ import { formatClock, formatRelativeTime } from "./util/time.js";
 import { buildHtml } from "./markdown.js";
 import { showWindow, hideWindow } from "./windowing.js";
 import { t, onChange } from "./i18n.js";
+import { prepareSpeech, playPrepared, stopAudio } from "./voice.js";
 
 // The conversation so far, and when this session began. winEl/logEl are the
 // popup window and its log, resolved at init so live updates can target them.
@@ -19,6 +23,13 @@ const turns = [];
 const sessionStart = new Date();
 let winEl = null;
 let logEl = null;
+
+// The turn being replayed and the button lit for it (tracked apart so a
+// re-render can light the rebuilt button), plus a token that retires an
+// in-flight synthesis once a newer click supersedes it.
+let playingTurn = null;
+let playingButton = null;
+let replayToken = 0;
 
 //
 // True when the transcript popup is currently open.
@@ -64,10 +75,87 @@ export function recordUser(text) {
 }
 
 //
-// Record one of Claude-chan's replies.
+// Record one of Claude-chan's replies, together with the Japanese line she
+// speaks for it -- that line is what the replay button plays back.
 //
-export function recordClaude(text) {
-  pushTurn({ role: "claude", text });
+export function recordClaude(text, speech) {
+  pushTurn({ role: "claude", text, speech: (speech || "").trim() });
+}
+
+//
+// Drop the "playing" highlight, unless a newer replay has already taken over.
+//
+function clearPlaying(turn) {
+  if (turn && turn !== playingTurn) {
+    return;
+  }
+
+  if (playingButton) {
+    playingButton.classList.remove("playing");
+  }
+
+  playingTurn = null;
+  playingButton = null;
+}
+
+//
+// Click on a replay button: stop the voice if this message is the one speaking,
+// otherwise say its line again -- interrupting whatever else is being spoken,
+// since only one clip plays at a time.
+//
+async function toggleReplay(button, turn) {
+  const wasPlaying = turn === playingTurn;
+
+  replayToken += 1;
+  stopAudio();
+  clearPlaying();
+
+  if (wasPlaying) {
+    return;
+  }
+
+  const token = replayToken;
+
+  playingTurn = turn;
+  playingButton = button;
+  button.classList.add("playing");
+
+  const audio = await prepareSpeech(turn.speech);
+
+  if (token !== replayToken) {
+    return;
+  }
+
+  if (!audio) {
+    clearPlaying(turn);
+    return;
+  }
+
+  // "pause" covers being cut off by another clip; onEnd covers finishing.
+  audio.addEventListener("pause", () => clearPlaying(turn), { once: true });
+  playPrepared(audio, { onEnd: () => clearPlaying(turn) });
+}
+
+//
+// Build the play button shown beside one of her labels. The icon is drawn in
+// CSS (a triangle, a square while it speaks) so no glyph font is involved.
+//
+function buildReplayButton(turn) {
+  const button = document.createElement("button");
+
+  button.type = "button";
+  button.className = "msg-replay";
+  button.title = t("transcript.replay");
+  button.setAttribute("aria-label", t("transcript.replay"));
+
+  if (turn === playingTurn) {
+    playingButton = button;
+    button.classList.add("playing");
+  }
+
+  button.addEventListener("click", () => toggleReplay(button, turn));
+
+  return button;
 }
 
 //
@@ -88,24 +176,33 @@ function buildSessionMarker() {
 
 //
 // Build one message row: a label ("You" / "Claude-chan") above its bubble,
-// aligned left for you and right for Claude-chan.
+// aligned left for you and right for Claude-chan. Her label is followed by a
+// replay button whenever the message has a spoken line behind it.
 //
 function buildMessage(turn) {
   const row = document.createElement("div");
+  const head = document.createElement("div");
   const label = document.createElement("div");
   const bubble = document.createElement("div");
   const time = document.createElement("div");
 
   row.className = "msg msg-" + turn.role;
+  head.className = "msg-head";
   label.className = "msg-label";
   label.textContent = turn.role === "you" ? t("transcript.you") : t("transcript.claude");
+  head.appendChild(label);
+
+  if (turn.speech) {
+    head.appendChild(buildReplayButton(turn));
+  }
+
   bubble.className = "msg-bubble";
   // render markdown (buildHtml escapes its input); markers are hidden via CSS
   bubble.innerHTML = buildHtml(turn.text);
   time.className = "msg-time";
   time.textContent = turn.time ? formatRelativeTime(turn.time) : "";
 
-  row.appendChild(label);
+  row.appendChild(head);
   row.appendChild(bubble);
   row.appendChild(time);
 
@@ -118,6 +215,7 @@ function buildMessage(turn) {
 function render(log) {
   const fragment = document.createDocumentFragment();
 
+  playingButton = null;
   fragment.appendChild(buildSessionMarker());
   turns.forEach((turn) => fragment.appendChild(buildMessage(turn)));
 

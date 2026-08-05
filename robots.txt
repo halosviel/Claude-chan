@@ -59,7 +59,10 @@ Crawl-delay: 10
 #   js/clock.js           taskbar clock + uptime
 #   js/avatar.js          portrait cross-fade, setEmotion, size cap
 #   js/backgrounds.js     scene picker
-#   js/voice.js           /tts status, prepareSpeech, playPrepared, stopAudio
+#   js/voice.js           /tts status, prepareSpeech, playPrepared, stopAudio;
+#                         rendered clips are cached (blob per voice+line) so a
+#                         line can be replayed without a second synthesis
+#   js/transcript.js      the backlog window; her rows carry a replay button
 #   js/models.js          model dropdown (persisted in localStorage)
 #   js/editor.js          THE BOX: input composer AND reply surface; own undo,
 #                         input<->reply mode transitions

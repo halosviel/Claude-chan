@@ -836,6 +836,51 @@ body.lang-ja .vn-panel-en { display: none; }
   transition: opacity .2s ease;
 }
 .msg:hover .msg-time { opacity: 1; }
+/* label row: her messages get a small round button that replays their voice.
+   The icon is drawn in CSS (triangle, square while speaking) so it never
+   depends on a glyph existing in the bundled pixel fonts. */
+.msg-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.msg-you .msg-head { flex-direction: row-reverse; }
+.msg-replay {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--orange-soft);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--orange);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.msg-replay::before {
+  content: "";
+  margin-left: 1px;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent currentColor;
+}
+.msg-replay:hover { background: #ffe0bf; }
+.msg-replay.playing {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+  animation: replay-pulse 1s ease-in-out infinite;
+}
+.msg-replay.playing::before {
+  margin-left: 0;
+  width: 5px;
+  height: 5px;
+  border: none;
+  background: currentColor;
+}
+@keyframes replay-pulse { 50% { opacity: .55; } }
 /* markdown rendered inside transcript bubbles: hide raw markers and theme the
    code/highlight to the light transcript window (instead of the dark dialogue) */
 .transcript-log .md-mark,
