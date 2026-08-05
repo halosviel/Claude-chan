@@ -42,8 +42,7 @@ Crawl-delay: 10
 #   GET  /image?emotion=<e>      -> {emotion, image}
 #   GET  /models                 -> {models:[{id,label}], default}
 #   GET  /tts                    -> {server: bool, engine: "aivisspeech"|null}
-#   GET  /speak?text=<jp>&mood=<m>  -> WAV bytes (503 if the engine is down).
-#                                mood picks a MOOD_VOICE profile (config.py);
+#   GET  /speak?text=<jp>        -> WAV bytes (503 if the engine is down);
 #                                renders are cached in .speech-cache/
 #   GET  /backgrounds            -> {backgrounds: [filenames]}
 #   POST /chat {message, model?} -> {emotion, text, speech, permission, image}
@@ -62,9 +61,9 @@ Crawl-delay: 10
 #   js/clock.js           taskbar clock + uptime
 #   js/avatar.js          portrait cross-fade, setEmotion, size cap
 #   js/backgrounds.js     scene picker
-#   js/voice.js           /tts status, prepareSpeech(text, mood), playPrepared,
-#                         stopAudio; clips cached per voice+mood+line so a line
-#                         can be replayed without a second synthesis
+#   js/voice.js           /tts status, prepareSpeech, playPrepared, stopAudio;
+#                         clips cached per voice+line so a line can be replayed
+#                         without a second synthesis
 #   js/transcript.js      the backlog: persisted across reloads (localStorage),
 #                         session pills, and a replay button on her rows
 #   js/models.js          model dropdown (persisted in localStorage)

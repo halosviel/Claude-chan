@@ -8,9 +8,9 @@
 //
 //  The log SURVIVES RELOADS (localStorage), so it spans sessions: every turn
 //  remembers which session it belongs to and a "Session started" pill is drawn
-//  wherever that changes. Her messages also carry the Japanese line she spoke and
-//  the mood she spoke it in, so each one gets a play button that says it again --
-//  instantly while a clip is cached, re-rendered by the server otherwise.
+//  wherever that changes. Her messages also carry the Japanese line she spoke,
+//  so each one gets a play button that says it again -- instantly while a clip
+//  is cached, re-rendered by the server otherwise.
 // ===========================================================================
 
 import { qs } from "./util/dom.js";
@@ -133,11 +133,10 @@ export function recordUser(text) {
 
 //
 // Record one of Claude-chan's replies, together with the Japanese line she
-// speaks for it and the mood she says it in -- that pair is what the replay
-// button hands back to the server, so a replay sounds exactly like the original.
+// speaks for it -- that line is what the replay button plays back.
 //
-export function recordClaude(text, speech, mood) {
-  pushTurn({ role: "claude", text, speech: (speech || "").trim(), mood: mood || "" });
+export function recordClaude(text, speech) {
+  pushTurn({ role: "claude", text, speech: (speech || "").trim() });
 }
 
 //
@@ -178,7 +177,7 @@ async function toggleReplay(button, turn) {
   playingButton = button;
   button.classList.add("playing");
 
-  const audio = await prepareSpeech(turn.speech, turn.mood);
+  const audio = await prepareSpeech(turn.speech);
 
   if (token !== replayToken) {
     return;

@@ -63,10 +63,9 @@ Both build the same appended persona via `_build_system()`. `SYSTEM_PROMPT` (in
 - `GET /image?emotion=<e>` → `{emotion, image}` — random non-repeating PNG from
   `assets/emotions/<e>/`, falling back to `assets/emotions/thinking/` if empty
 - `GET /tts` → `{server: bool, engine: "aivisspeech"|null}`
-- `GET /speak?text=<jp>&mood=<mood>` → WAV bytes (503 if engine down). The mood
-  picks how the line is acted (see "Moods" below); renders are cached on disk in
-  `.speech-cache/` (gitignored), so a repeat of a line she has already said is
-  served instantly instead of re-synthesized.
+- `GET /speak?text=<jp>` → WAV bytes (503 if engine down). Renders are cached on
+  disk in `.speech-cache/` (gitignored), so a line she has already said is served
+  instantly instead of re-synthesized.
 - `GET /backgrounds` → `{backgrounds: [...]}` ; `GET /permission-sound` → mp3
 - `POST /chat {message}` → `{emotion, text, speech, permission, image}`
 
@@ -135,27 +134,6 @@ per-run: `AIVIS_SPEAKER=<id> python3 server.py`.
    # HTTP 204 = success. Large models can take 30-90s each.
    ```
 3. `curl :10101/speakers` to get the new style id, then set `AIVIS_SPEAKER`.
-
-
-### How a mood is spoken (`MOOD_VOICE` in `app/config.py`)
-**Currently OFF** (`MOOD_ACTING = False`): she speaks in her plain voice. Flip
-it to `True` to have her act; everything below stays wired up either way.
-
-Every reply page carries its own mood tag, and that mood is sent along to
-`/speak`, so a reply that shifts partway through actually *sounds* like it.
-`voice.synth_wav()` applies a mood two ways:
-- **the audio_query knobs** — `speedScale`, `pitchScale`, `intonationScale`
-  (how strongly she acts), `tempoDynamicsScale` (how much the pacing moves) and
-  `volumeScale`. AivisSpeech 1.2 honours all of them. Keep `pitchScale` inside
-  about ±0.06 or the shift turns metallic.
-- **a style swap** — a mood may name an AivisSpeech style (`あまあま`,
-  `からかい`, `せつなめ`, `おちつき`). It is used only when the *selected voice
-  actually has* that style: **Runa is single-style**, so for her the knobs carry
-  the whole mood; Mao and Kohaku do have them and get the real style.
-
-Retuning the table is safe: the speech cache is keyed by it, so an edit renders
-fresh audio instead of serving the old take (and the backend auto-reload picks
-the change up on save).
 
 ### What survives a reload
 The backlog (`js/transcript.js`), the desktop layout (`js/layout.js`), and the

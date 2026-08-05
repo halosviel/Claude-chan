@@ -135,8 +135,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if parsed.path == "/speak":
             query = urllib.parse.parse_qs(parsed.query)
             speaker = query.get("speaker", [None])[0]
-            mood = query.get("mood", [""])[0]
-            wav = voice.synth_wav(query.get("text", [""])[0], speaker, mood)
+            wav = voice.synth_wav(query.get("text", [""])[0], speaker)
 
             if wav is None:
                 logbuf.add("speak: TTS unavailable (engine down or synth failed)")
