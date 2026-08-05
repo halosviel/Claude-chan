@@ -369,4 +369,11 @@ export function initTranscript() {
     showWindow(winEl);
     render(logEl);
   });
+
+  // The window may have been restored already open (layout.js runs first), and
+  // the log is only built on demand -- so fill it now, or a refresh would leave
+  // an open backlog blank until it was toggled shut and back.
+  if (isOpen()) {
+    render(logEl);
+  }
 }

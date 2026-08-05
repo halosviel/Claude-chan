@@ -50,6 +50,7 @@ async function main() {
   initServerLog();
   initI18n();
   initWindowing();
+  initLayout();
   initStartMenu();
   initClock();
   initDateBox();
@@ -65,7 +66,6 @@ async function main() {
   initMemory();
   initSettings();
   initInputGate();
-  initLayout();
   preloadSounds();
   preloadPortraits();
   setEmotion("idle");
